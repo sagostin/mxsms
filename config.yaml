@@ -1,0 +1,31 @@
+services:
+  xyzrd-mx: # unique server name
+    server:
+      host:        voip.xyzrd.com
+      port:        7778
+      secure:      true
+      skipverify:  true # skip verify selfsigned sertificate
+      timeout:     5s
+    login:
+      user:        d3
+      password:    9185
+    phones:
+      prefix:      7  # default phone prefix (without plus)
+errordelay:        1s # reconnect delay
+smsgate:
+  sinch:
+    key:           8efa3870-ec30-4a55-b612-0a9065d4e5f7
+    secret:        Ai9PHJVc/UKHpPgiqaZgOA==
+  from:            +14152364961
+  check:           10s # pause before check message status
+  maxlength:       160 # maximum message length
+  default:         # unknown SMS delivery to
+    service:       xyzrd-mx
+    jid:           43884852083135871
+  responses:
+    nophone:       "No phone in the beginning of the message"
+    incorrect:     "Invalid phone number: %s" 
+    # accepted:      "SMS accepted: [%s]"
+    delivered:     "SMS delivered to %s"
+    error:         "SMS send error: %s"
+    incoming:      "SMS from %s\n%s"
