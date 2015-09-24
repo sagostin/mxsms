@@ -41,7 +41,6 @@ type SMSGate struct {
 func (s *SMSGate) Send(serviceName, jid string, msgID int64, to, msg string) (smsMsgID int, err error) {
 	from := s.From
 	smsMsgID, err = s.Sinch.Send(from, to, msg)
-	// smsMsgID, err = 15, nil
 	if err != nil {
 		return
 	}
@@ -81,7 +80,6 @@ func (s *SMSGate) Status(msgID int) (status string, err error) {
 			return
 		}
 		time.Sleep(delay)
-		continue // ждем еще
 	}
 }
 
