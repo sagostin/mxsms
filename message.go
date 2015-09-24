@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -15,9 +14,7 @@ type MessageHandle struct {
 	*SMSGate                // шаблоны сообщений
 	*Service                // правила разбора телефонных номеров
 	phoneRE  *regexp.Regexp // регулярное выражение для разбора сообщения
-	counter  uint32         // счетчик отправленных сообщений
 	client   *csta.Client
-	logger   *log.Logger // вывод в лог
 }
 
 // NewMessageHandler инициализирует и возвращает новый обработчик входящих сообщений.
@@ -38,7 +35,6 @@ func NewMessageHandler(sms *SMSGate, service *Service) *MessageHandle {
 	handler := &MessageHandle{
 		SMSGate: sms,
 		Service: service,
-		logger:  service.logger,
 		phoneRE: regexp.MustCompile(re),
 	}
 	return handler
@@ -65,7 +61,7 @@ func (mh *MessageHandle) Handle(eventData interface{}) (err error) {
 	// разбираем сообщение и проверяем, что оно начинается на телефонный номер
 	submatch := mh.phoneRE.FindStringSubmatch(data.Body)
 	if submatch == nil { // телефонный номер не найден
-		mh.logger.Printf("✗ [%d] Ignore: %s - no phone", data.MsgID)
+		mh.Service.logger.Printf("✗ [%d] Ignore: %s - no phone", data.MsgID)
 		return mh.client.Send(mh.getMessage(data.From, mh.Responses.NoPhone, ""))
 	}
 	// телефонный номер найден в сообщении
@@ -78,7 +74,7 @@ func (mh *MessageHandle) Handle(eventData interface{}) (err error) {
 	case l == 11 && phone[1] != '0': // полный номер телефона
 		phone = fmt.Sprintf("+%s", phone)
 	default: // непонятная длинна телефонного номера или неверный номер
-		mh.logger.Printf("✗ [%d] Ignore phone %q", data.MsgID, phone)
+		mh.Service.logger.Printf("✗ [%d] Ignore phone %q", data.MsgID, phone)
 		return mh.client.Send(mh.getMessage(data.From, mh.Responses.Incorrect, phone))
 	}
 	// теперь займемся текстом сообщения
@@ -86,7 +82,7 @@ func (mh *MessageHandle) Handle(eventData interface{}) (err error) {
 	msgID, err := mh.Send(mh.name, data.From, data.MsgID, phone, submatch[2])
 	if err != nil {
 		// сообщение не отправлено
-		mh.logger.Printf("✗ [%d] Send SMS to phone %q error: %s", data.MsgID, phone, err)
+		mh.Service.logger.Printf("✗ [%d] Send SMS to phone %q error: %s", data.MsgID, phone, err)
 		return mh.client.Send(mh.getMessage(data.From, mh.Responses.Error, err.Error()))
 	}
 	// сообщение успешно отправлено
