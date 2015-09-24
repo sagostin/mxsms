@@ -1,13 +1,11 @@
 package main
 
 import (
-	"encoding/xml"
 	"fmt"
 	"log"
 	"reflect"
 	"regexp"
 	"strconv"
-	"sync/atomic"
 
 	"github.com/mdigger/mxsms2/csta"
 )
@@ -67,8 +65,8 @@ func (mh *MessageHandle) Handle(eventData interface{}) (err error) {
 	// разбираем сообщение и проверяем, что оно начинается на телефонный номер
 	submatch := mh.phoneRE.FindStringSubmatch(data.Body)
 	if submatch == nil { // телефонный номер не найден
-		mh.logger.Printf("✗ [%d] Ignore: %s", data.MsgID, mh.SMSGate.Responses.NoPhone)
-		return mh.client.Send(mh.getMessage(data.From, mh.SMSGate.Responses.NoPhone, ""))
+		mh.logger.Printf("✗ [%d] Ignore: %s - no phone", data.MsgID)
+		return mh.client.Send(mh.getMessage(data.From, mh.Responses.NoPhone, ""))
 	}
 	// телефонный номер найден в сообщении
 	phone := submatch[1]
@@ -81,38 +79,24 @@ func (mh *MessageHandle) Handle(eventData interface{}) (err error) {
 		phone = fmt.Sprintf("+%s", phone)
 	default: // непонятная длинна телефонного номера или неверный номер
 		mh.logger.Printf("✗ [%d] Ignore phone %q", data.MsgID, phone)
-		return mh.client.Send(mh.getMessage(
-			data.From, mh.SMSGate.Responses.Incorrect, phone))
+		return mh.client.Send(mh.getMessage(data.From, mh.Responses.Incorrect, phone))
 	}
 	// теперь займемся текстом сообщения
 	// отправляем SMS-сообщение и получаем его идентификатор
-	msgID, err := mh.SMSGate.Send(mh.name, data.From, data.MsgID, phone, submatch[2])
+	msgID, err := mh.Send(mh.name, data.From, data.MsgID, phone, submatch[2])
 	if err != nil {
 		// сообщение не отправлено
 		mh.logger.Printf("✗ [%d] Send SMS to phone %q error: %s", data.MsgID, phone, err)
-		return mh.client.Send(mh.getMessage(data.From, mh.SMSGate.Responses.Error, err.Error()))
+		return mh.client.Send(mh.getMessage(data.From, mh.Responses.Error, err.Error()))
 	}
 	// сообщение успешно отправлено
 	mh.logger.Printf("✓ [%d] Send SMS to phone %q (#%d): %s",
 		data.MsgID, phone, msgID, "Accepted")
 	if err = mh.client.Send(mh.getMessage(
-		data.From, mh.SMSGate.Responses.Accepted, strconv.Itoa(msgID))); err != nil {
+		data.From, mh.Responses.Accepted, strconv.Itoa(msgID))); err != nil {
 		return
 	}
 	return
-}
-
-// getMessage возвращает сформированную команду для отправки подтверждающего сообщения
-// на основе текста шаблона. Если текст шаблона пустой, то сообщение не отправляется
-func (mh *MessageHandle) getMessage(to, tmpl string, items ...interface{}) *sendMessage {
-	if tmpl == "" || to == "" {
-		return nil // тема письма или адрес получателя не определены
-	}
-	return &sendMessage{
-		To:    to,
-		MsgID: atomic.AddUint32(&mh.counter, 1),
-		Body:  fmt.Sprintf(tmpl, items...),
-	}
 }
 
 // incommingMessage описывает входящее сообщение.
@@ -129,13 +113,4 @@ type messageAck struct {
 	From string `xml:"from,attr"`
 	UID  int64  `xml:"msgId,attr"`
 	GID  int64  `xml:"reqId,attr"`
-}
-
-// sendMessage описывает структуру исходящего сообщения.
-type sendMessage struct {
-	XMLName xml.Name `xml:"message"`
-	To      string   `xml:"to,attr"`            // уникальный идентификатор получателя
-	MsgID   uint32   `xml:"msgId,attr"`         // идентификатор сообщения
-	Ext     string   `xml:"ext,attr,omitempty"` // внутренний номер получателя
-	Body    string   `xml:",chardata"`          // текст сообщения
 }

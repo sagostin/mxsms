@@ -1,8 +1,11 @@
 package main
 
 import (
+	"encoding/xml"
+	"fmt"
 	"log"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/mdigger/mxsms2/sinch"
@@ -31,8 +34,8 @@ type SMSGate struct {
 	Responses SMSTemplates    // список шаблонов ответов
 	Default   DefaultDelivery `yaml:",omitempty"`
 	MaxLength int             `yaml:",omitempty"` // максимальная длинна сообщения
-
-	History // история отправленных сообщений
+	counter   uint32          // счетчик отправленных сообщений
+	history   History         // история отправленных сообщений
 }
 
 func (s *SMSGate) Send(serviceName, jid string, msgID int64, to, msg string) (smsMsgID int, err error) {
@@ -42,7 +45,7 @@ func (s *SMSGate) Send(serviceName, jid string, msgID int64, to, msg string) (sm
 	if err != nil {
 		return
 	}
-	s.History.Add(serviceName, jid, msgID, from, to, smsMsgID)
+	s.history.Add(serviceName, jid, msgID, from, to, smsMsgID)
 	// делаем проверку доставки сообщения
 	go func() {
 		status, err := s.Status(smsMsgID)
@@ -96,23 +99,44 @@ func (s *SMSGate) IncomingHTTP(req *http.Request) (msg *sinch.IncomingSMS, err e
 	if len(from) == 11 {
 		from = "+" + from
 	}
-	item := s.History.Get(from)
-	if item != nil {
-		service := config.Services[item.Service]
-		if service == nil {
-			return
-		}
-		service.client.Send(service.handler.getMessage(
-			item.JID, incoming, msg.From.Endpoint, msg.Message))
+	var (
+		serviceName = s.Default.Service
+		JID         = s.Default.JID
+	)
+	if item := s.history.Get(from); item != nil {
+		serviceName = item.Service
+		JID = item.JID
+	}
+	if serviceName == "" || JID == "" {
 		return
 	}
-	if s.Default.Service != "" && s.Default.JID != "" {
-		service := config.Services[s.Default.Service]
-		if service == nil {
-			return
-		}
-		service.client.Send(service.handler.getMessage(
-			s.Default.JID, incoming, msg.From.Endpoint, msg.Message))
+	service := config.Services[serviceName]
+	if service == nil {
+		return
 	}
+	service.client.Send(service.handler.getMessage(
+		JID, incoming, msg.From.Endpoint, msg.Message))
 	return
+}
+
+// getMessage возвращает сформированную команду для отправки подтверждающего сообщения
+// на основе текста шаблона. Если текст шаблона пустой, то сообщение не отправляется
+func (s *SMSGate) getMessage(to, tmpl string, items ...interface{}) *sendMessage {
+	if tmpl == "" || to == "" {
+		return nil // тема письма или адрес получателя не определены
+	}
+	return &sendMessage{
+		To:    to,
+		MsgID: atomic.AddUint32(&s.counter, 1),
+		Body:  fmt.Sprintf(tmpl, items...),
+	}
+}
+
+// sendMessage описывает структуру исходящего сообщения.
+type sendMessage struct {
+	XMLName xml.Name `xml:"message"`
+	To      string   `xml:"to,attr"`            // уникальный идентификатор получателя
+	MsgID   uint32   `xml:"msgId,attr"`         // идентификатор сообщения
+	Ext     string   `xml:"ext,attr,omitempty"` // внутренний номер получателя
+	Body    string   `xml:",chardata"`          // текст сообщения
 }
