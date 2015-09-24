@@ -44,39 +44,42 @@ func (s *SMSGate) Send(serviceName, jid string, msgID int64, to, msg string) (sm
 	}
 	s.History.Add(serviceName, jid, msgID, from, to, smsMsgID)
 	// делаем проверку доставки сообщения
-	if s.Check > 0 {
-		go func() {
-			for {
-				time.Sleep(s.Check)
-				status, err := s.Status(smsMsgID)
-				if err != nil || config == nil {
-					return
-				}
-				service := config.Services[serviceName]
-				if service == nil || service.Disabled {
-					return
-				}
-				switch status {
-				case "Pending":
-					continue // ждем еще
-				case "Successful":
-					service.client.Send(service.handler.getMessage(
-						jid, s.Responses.Delivered, to))
-				default:
-					fallthrough
-				case "Unknown", "Faulted":
-					service.client.Send(service.handler.getMessage(
-						jid, s.Responses.Error, to+" - "+status))
-				}
-				return
-			}
-		}()
-	}
+	go func() {
+		status, err := s.Status(smsMsgID)
+		if err != nil || status == "" || config == nil {
+			return
+		}
+		service := config.Services[serviceName]
+		if service == nil || service.Disabled {
+			return
+		}
+		switch status {
+		case "Successful":
+			service.client.Send(service.handler.getMessage(
+				jid, s.Responses.Delivered, to))
+		default:
+			service.client.Send(service.handler.getMessage(
+				jid, s.Responses.Error, to+" - "+status))
+		}
+		return
+	}()
 	return
 }
 
 func (s *SMSGate) Status(msgID int) (status string, err error) {
-	return s.Sinch.Status(msgID)
+	time.Sleep(s.Check)
+	delay := s.Check
+	if delay == 0 {
+		delay = time.Second * 10
+	}
+	for {
+		status, err = s.Sinch.Status(msgID)
+		if err != nil || status != "Pending" {
+			return
+		}
+		time.Sleep(delay)
+		continue // ждем еще
+	}
 }
 
 func (s *SMSGate) IncomingHTTP(req *http.Request) (msg *sinch.IncomingSMS, err error) {
