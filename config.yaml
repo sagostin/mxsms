@@ -9,8 +9,11 @@ services:
     login:
       user:        d3
       password:    9185
+      #clear:       false
     phones:
+      #short:       0
       prefix:      7  # default phone prefix (without plus)
+    #disabled       false
 errordelay:        1s # reconnect delay
 smsgate:
   sinch:
@@ -25,7 +28,7 @@ smsgate:
   responses:
     nophone:       "No phone in the beginning of the message"
     incorrect:     "Invalid phone number: %s" 
-    # accepted:      "SMS accepted: [%s]"
+    #accepted:      "SMS accepted: [%s]"
     delivered:     "SMS delivered to %s"
     error:         "SMS send error: %s"
     incoming:      "SMS from %s\n%s"

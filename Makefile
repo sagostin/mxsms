@@ -21,3 +21,4 @@ release:
 	@GOOS=linux GOARCH=amd64 go build $(FLAGS) -o mxsms-linux-amd64
 	@GOOS=linux GOARCH=386 go build $(FLAGS) -o mxsms-linux-386
 	@GOOS=darwin GOARCH=amd64 go build $(FLAGS) -o mxsms-darwin-amd64
+	@zip -9 mxsms-0.5.0.zip mxsms-linux-amd64 mxsms-linux-386 mxsms-darwin-amd64 config.yaml
