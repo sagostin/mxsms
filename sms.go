@@ -40,6 +40,7 @@ type SMSGate struct {
 
 func (s *SMSGate) Send(serviceName, jid string, msgID int64, to, msg string) (smsMsgID int, err error) {
 	from := s.From
+	log.Printf("SMS from %q to %q", from, to)
 	smsMsgID, err = s.Sinch.Send(from, to, msg)
 	if err != nil {
 		return
