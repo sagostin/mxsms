@@ -26,7 +26,7 @@ type DefaultDelivery struct {
 // SMSGate описывает конфигурацию для отправки SMS.
 type SMSGate struct {
 	SMS       *SMS
-	From      string          `yaml:",omitempty"` // номер телефона, с которого отправляются SMS
+	From      []string        `yaml:",omitempty"` // номер телефона, с которого отправляются SMS
 	Check     time.Duration   `yaml:",omitempty"` // задержка перед проверкой статуса
 	Responses SMSTemplates    // список шаблонов ответов
 	Default   DefaultDelivery `yaml:",omitempty"`
@@ -36,7 +36,7 @@ type SMSGate struct {
 }
 
 func (s *SMSGate) Send(serviceName, jid string, msgID int64, to, msg string) (smsMsgID string, err error) {
-	from := s.From
+	from := s.From[0]
 	log.Printf("SMS from %q to %q", from, to)
 	smsMsgID, err = s.SMS.Send(from, to, msg)
 	if err != nil {

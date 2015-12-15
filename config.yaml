@@ -12,14 +12,15 @@ services:
       #clear:       false
     phones:
       #short:       0
-      prefix:      7  # default phone prefix (without plus)
+      prefix:      1  # default phone prefix (without plus)
     #disabled       false
 errordelay:        1s # reconnect delay
 smsgate:
-  from:            +14152364961
-  check:           10s # pause before check message status
+  from:            
+                   - +14086751455
+                   - +14086751475
   maxlength:       160 # maximum message length
-  default:         # unknown SMS delivery to
+  default:         # delivery unknown SMS to
     service:       xyzrd-mx
     jid:           43884852083135871
   responses:

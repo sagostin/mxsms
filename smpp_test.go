@@ -7,13 +7,17 @@ import (
 )
 
 func TestSMPP(t *testing.T) {
-	sms := NewSMS("67.231.4.201:2775", "Zultys", "unmQF932")
+	sms := NewSMS("127.0.0.1:2775", "Zultys", "unmQF932")
 	defer sms.Close()
-	time.Sleep(time.Second * 10)
-	msgID, err := sms.Send("4086751455", "4086751475", "Test message")
+	err := sms.Bind()
+	if err != nil {
+		t.Fatal(err)
+	}
+	msgID, err := sms.Send("4086751475", "4086751455", fmt.Sprintf("Time message: %q",
+		time.Now().Format(time.RFC822)))
 	if err != nil {
 		t.Error("Send error:", err)
 	}
 	fmt.Println("MsgID:", msgID)
-	time.Sleep(time.Second * 30)
+	time.Sleep(time.Second * 5)
 }
