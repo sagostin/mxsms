@@ -15,9 +15,10 @@ type SMS struct {
 
 func NewSMS(addr, user, password string) *SMS {
 	tx := &smpp.Transceiver{
-		Addr:   addr,
-		User:   user,
-		Passwd: password,
+		Addr:       addr,
+		User:       user,
+		Passwd:     password,
+		SystemType: "SMPP",
 	}
 	sms := &SMS{
 		tx: tx,
