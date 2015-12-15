@@ -7,7 +7,7 @@ import (
 )
 
 func TestSMPP(t *testing.T) {
-	sms := NewSMS("127.0.0.1:2775", "Zultys", "unmQF932")
+	sms := NewSMS("67.231.4.201:2775", "Zultys", "unmQF932")
 	defer sms.Close()
 	err := sms.Bind()
 	if err != nil {
