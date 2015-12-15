@@ -10,7 +10,7 @@ run: debug
 
 debug:
 	@echo "debug build..."
-	@go build -race $(FLAGS)
+	@go build $(FLAGS)
 
 build:
 	@echo "build..."

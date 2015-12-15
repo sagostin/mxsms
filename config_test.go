@@ -6,7 +6,7 @@ import (
 	"github.com/kr/pretty"
 )
 
-func TestConfig(t *testing.T) {
+func TestConfigFile(t *testing.T) {
 	config, err := LoadConfig("config.yaml")
 	if err != nil {
 		t.Fatal(err)

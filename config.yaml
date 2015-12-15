@@ -16,9 +16,6 @@ services:
     #disabled       false
 errordelay:        1s # reconnect delay
 smsgate:
-  sinch:
-    key:           8efa3870-ec30-4a55-b612-0a9065d4e5f7
-    secret:        Ai9PHJVc/UKHpPgiqaZgOA==
   from:            +14152364961
   check:           10s # pause before check message status
   maxlength:       160 # maximum message length

@@ -10,7 +10,7 @@ import (
 // PhoneInfo описывает правила разбора телефонных номеров
 type PhoneInfo struct {
 	Short  int    `yaml:",omitempty"` // длина короткого телефонного номера
-	Prefix string `yaml:",omitempty"` // префикс не полного телефонного номера
+	Prefix string `yaml:",omitempty"` // префикс неполного телефонного номера
 }
 
 // Service описывает конфигурацию сервиса, включая необходимые данные для подключения к серверу
