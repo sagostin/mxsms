@@ -22,7 +22,7 @@ func NewSMS(addr, user, password string) (sms *SMS) {
 			Addr:       addr,
 			User:       user,
 			Passwd:     password,
-			SystemType: "smpp",
+			SystemType: "SMPP", // именно заглавными буквами
 			Handler:    sms.handler,
 		},
 	}
