@@ -9,8 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/mdigger/csta6"
-
+	"github.com/mdigger/mxsms2/csta"
 	"gopkg.in/yaml.v2"
 )
 

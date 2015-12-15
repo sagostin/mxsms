@@ -11,7 +11,7 @@ type Item struct {
 	From     string
 	To       string
 	MsgID    int64
-	SMSMsgID int
+	SMSMsgID string
 	Sended   time.Time
 }
 
@@ -20,7 +20,7 @@ type History struct {
 	mu   sync.Mutex
 }
 
-func (h *History) Add(service, jid string, msgID int64, from, to string, smsMsgID int) {
+func (h *History) Add(service, jid string, msgID int64, from, to string, smsMsgID string) {
 	h.mu.Lock()
 	if h.list == nil {
 		h.list = make(map[string]Item)

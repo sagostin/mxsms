@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
-	"strconv"
 
 	"github.com/mdigger/mxsms2/csta"
 )
@@ -89,7 +88,7 @@ func (mh *MessageHandle) Handle(eventData interface{}) (err error) {
 	mh.logger.Printf("✓ [%d] Send SMS to phone %q (#%d): %s",
 		data.MsgID, phone, msgID, "Accepted")
 	if err = mh.client.Send(mh.getMessage(
-		data.From, mh.Responses.Accepted, strconv.Itoa(msgID))); err != nil {
+		data.From, mh.Responses.Accepted, msgID)); err != nil {
 		return
 	}
 	return
