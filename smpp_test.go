@@ -9,6 +9,7 @@ import (
 func TestSMPP(t *testing.T) {
 	sms := NewSMS("67.231.4.201:2775", "Zultys", "unmQF932")
 	defer sms.Close()
+	time.Sleep(time.Second * 10)
 	msgID, err := sms.Send("4086751455", "4086751475", "Test message")
 	if err != nil {
 		t.Error("Send error:", err)
