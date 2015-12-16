@@ -38,30 +38,37 @@ func LoadConfig(filename string) (config *Config, err error) {
 
 // Start запускает соединение со всеми серверами, указанными в конфигурации.
 func (c *Config) Start() error {
+	// isMoreServices := len(c.Services) > 1 // флаг, что определено несколько сервисов
 	c.SMPP.logger = log.New(logOutput, fmt.Sprintf("%-16s ", "SMPP"), logFlags)
 	// устанавливаем соединение с SMPP сервером
-	c.SMPP.logger.Printf("Connecting to %q...", c.SMPP.Address)
-	if err := c.SMPP.Connect(); err != nil {
-		c.SMPP.logger.Printf("Connection error: %v", err)
-		return err
-	}
-	isMoreServices := len(c.Services) > 1 // флаг, что определено несколько сервисов
+	go func() {
+		for {
+			c.SMPP.logger.Printf("Connecting to %q...", c.SMPP.Address)
+			if err := c.SMPP.Connect(); err != nil {
+				c.SMPP.logger.Printf("Connection error: %v", err)
+			}
+			if c.SMPP.closing {
+				return
+			}
+			time.Sleep(c.ErrorDelay) // небольшая задержка перед повторным соединением
+		}
+	}()
 	// перебираем все сервисы, определенные в конфигурации
 	for name, s := range c.Services {
 		s.mu.Lock()
 		// обрезаем имя сервиса для вывода в лог до 8 символов
 		var logName string
-		if isMoreServices { // если сервисов больше одного, то добавляем в лог имя сервиса
-			if utf8.RuneCountInString(name) > 16 {
-				// обрезаем до 16 знаков и добавляем многоточие, если имя слишком длинное
-				logName = fmt.Sprintf("%s… ", string([]rune(name)[:15]))
-			} else {
-				// добиваем имя до 16 символов
-				logName = fmt.Sprintf("%-16s ", name)
-			}
+		// if isMoreServices { // если сервисов больше одного, то добавляем в лог имя сервиса
+		if utf8.RuneCountInString(name) > 16 {
+			// обрезаем до 16 знаков и добавляем многоточие, если имя слишком длинное
+			logName = fmt.Sprintf("%s… ", string([]rune(name)[:15]))
 		} else {
-			logName = "" // не задаем имя в логе, если только один сервер
+			// добиваем имя до 16 символов
+			logName = fmt.Sprintf("%-16s ", name)
 		}
+		// } else {
+		// 	logName = "" // не задаем имя в логе, если только один сервер
+		// }
 		// инициализируем вывод в лог
 		s.logger = log.New(logOutput, logName, logFlags)
 		s.name = name // сохраняем имя сервиса

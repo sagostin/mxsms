@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/mdigger/smpp"
@@ -9,28 +11,79 @@ import (
 
 var EnquireLinkDuration = time.Second * 10
 
+// SMPP описывает соединение с сервером SMPP.
 type SMPP struct {
-	Address  string
-	User     string
-	Password string
-	trx      *smpp.Transceiver
-	logger   *log.Logger
+	Address    string
+	User       string
+	Password   string
+	NewMessage chan<- smpp.Pdu
+	trx        *smpp.Transceiver
+	logger     *log.Logger
+	closing    bool
+	mu         sync.RWMutex
 }
 
-func (s *SMPP) Connect() error {
+// Connect устанавливает соединение с сервером, авторизуется и начинает читать от него сообщения.
+// В случае ошибки соединения возвращается ее описание и функция заканчивается. Рекомендуется
+// запускать ее в отдельном потоке для мониторинга подключения.
+func (s *SMPP) Connect() (err error) {
+	s.mu.Lock()
+	s.closing = false
+	if s.NewMessage == nil {
+		s.NewMessage = make(chan smpp.Pdu, 1000)
+	}
+	s.mu.Unlock()
 	trx, err := smpp.NewTransceiver(s.Address, EnquireLinkDuration, smpp.Params{
 		smpp.SYSTEM_TYPE: "SMPP",
 		smpp.SYSTEM_ID:   s.User,
 		smpp.PASSWORD:    s.Password,
 	})
 	if err != nil {
-		return err
+		return
 	}
 	s.trx = trx
-	return nil
+	// start reading PDUs
+	for {
+		pdu, err := trx.Read() // This is blocking
+		if err != nil {
+			s.mu.RLock()
+			if s.closing { // проверяем, что соединения закрывается нами
+				s.mu.RUnlock()
+				return nil
+			}
+			s.mu.RUnlock()
+			return err
+		}
+		// Transceiver auto handles EnquireLinks
+		switch pdu.GetHeader().Id {
+		case smpp.SUBMIT_SM_RESP:
+			// message_id should match this with seq message
+			fmt.Println("SUBMIT_SM_RESP ID:", pdu.GetField("message_id").String())
+		case smpp.DELIVER_SM:
+			// received Deliver Sm
+			fmt.Println("DELIVER_SM:")
+			// Print all fields
+			for _, v := range pdu.MandatoryFieldsList() {
+				f := pdu.GetField(v)
+				fmt.Println("\t", v, ":", f)
+			}
+			s.NewMessage <- pdu
+			// Respond back to Deliver SM with Deliver SM Resp
+			err := trx.DeliverSmResp(pdu.GetHeader().Sequence, smpp.ESME_ROK)
+			if err != nil {
+				fmt.Println("DeliverSmResp err:", err)
+			}
+		// case smpp.ENQUIRE_LINK_RESP: // ignore
+		default:
+			fmt.Println("PDU ID:", pdu.GetHeader().Id)
+		}
+	}
 }
 
 func (s *SMPP) Close() error {
+	s.mu.Lock()
+	s.closing = true
+	s.mu.Unlock()
 	return s.trx.Close()
 }
 
