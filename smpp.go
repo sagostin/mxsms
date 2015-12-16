@@ -73,7 +73,7 @@ func (s *SMPP) Connect() (err error) {
 			if err != nil {
 				fmt.Println("DeliverSmResp err:", err)
 			}
-		// case smpp.ENQUIRE_LINK_RESP: // ignore
+		case smpp.ENQUIRE_LINK_RESP: // ignore
 		default:
 			fmt.Println("PDU ID:", pdu.GetHeader().Id)
 		}
