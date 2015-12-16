@@ -6,21 +6,29 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kr/pretty"
 	"github.com/mdigger/smpp"
 )
 
 var EnquireLinkDuration = time.Second * 10
 
+type Message struct {
+	From string
+	To   string
+	Text string
+}
+
 // SMPP описывает соединение с сервером SMPP.
 type SMPP struct {
-	Address    string
-	User       string
-	Password   string
-	NewMessage chan<- smpp.Pdu
-	trx        *smpp.Transceiver
-	logger     *log.Logger
-	closing    bool
-	mu         sync.RWMutex
+	Address  string         // адрес и порт SMPP сервера
+	User     string         // логин для авторизации
+	Password string         // пароль для авторизации
+	Encoding string         // кодировка исходящих сообщений
+	Incoming chan<- Message // чтение входящих сообщений
+	trx      *smpp.Transceiver
+	logger   *log.Logger
+	closing  bool
+	mu       sync.RWMutex
 }
 
 // Connect устанавливает соединение с сервером, авторизуется и начинает читать от него сообщения.
@@ -29,8 +37,8 @@ type SMPP struct {
 func (s *SMPP) Connect() (err error) {
 	s.mu.Lock()
 	s.closing = false
-	if s.NewMessage == nil {
-		s.NewMessage = make(chan smpp.Pdu, 1000)
+	if s.Incoming == nil {
+		s.Incoming = make(chan Message, 1000)
 	}
 	s.mu.Unlock()
 	trx, err := smpp.NewTransceiver(s.Address, EnquireLinkDuration, smpp.Params{
@@ -63,11 +71,19 @@ func (s *SMPP) Connect() (err error) {
 			// received Deliver Sm
 			fmt.Println("DELIVER_SM:")
 			// Print all fields
-			for _, v := range pdu.MandatoryFieldsList() {
-				f := pdu.GetField(v)
-				fmt.Println("\t", v, ":", f)
+			// for _, v := range pdu.MandatoryFieldsList() {
+			// 	f := pdu.GetField(v)
+			// 	fmt.Println("\t", v, ":", f)
+			// }
+			msg := Message{
+				From: pdu.GetField("source_addr").String(),
+				To:   pdu.GetField("destination_addr").String(),
+				Text: pdu.GetField("destination_addr").String(),
 			}
-			s.NewMessage <- pdu
+			data_coding := pdu.GetField("destination_addr").Value().(int)
+			_ = data_coding
+			s.Incoming <- msg
+			pretty.Println(msg)
 			// Respond back to Deliver SM with Deliver SM Resp
 			err := trx.DeliverSmResp(pdu.GetHeader().Sequence, smpp.ESME_ROK)
 			if err != nil {

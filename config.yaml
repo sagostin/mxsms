@@ -20,6 +20,7 @@ smsgate:
     address:       67.231.4.201:2775
     user:          Zultys
     password:      unmQF932
+    encoding:      raw # latin, ucs2
   from:            +14086751455
   maxlength:       160 # maximum message length
   default:         # delivery unknown SMS to
