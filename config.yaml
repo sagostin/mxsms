@@ -16,9 +16,11 @@ services:
     #disabled       false
 errordelay:        1s # reconnect delay
 smsgate:
-  from:            
-                   - +14086751455
-                   - +14086751475
+  smpp:            # SMPP connection settings
+    address:       67.231.4.201:2775
+    user:          Zultys
+    password:      unmQF932
+  from:            +14086751455
   maxlength:       160 # maximum message length
   default:         # delivery unknown SMS to
     service:       xyzrd-mx

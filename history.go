@@ -6,13 +6,13 @@ import (
 )
 
 type Item struct {
-	Service  string
-	JID      string
-	From     string
-	To       string
-	MsgID    int64
-	SMSMsgID string
-	Sended   time.Time
+	Service string
+	JID     string
+	From    string
+	To      string
+	MsgID   int64
+	SMSSeq  uint32
+	Sended  time.Time
 }
 
 type History struct {
@@ -20,19 +20,19 @@ type History struct {
 	mu   sync.Mutex
 }
 
-func (h *History) Add(service, jid string, msgID int64, from, to string, smsMsgID string) {
+func (h *History) Add(service, jid string, msgID int64, from, to string, seq uint32) {
 	h.mu.Lock()
 	if h.list == nil {
 		h.list = make(map[string]Item)
 	}
 	h.list[to] = Item{
-		Service:  service,
-		JID:      jid,
-		From:     from,
-		To:       to,
-		MsgID:    msgID,
-		SMSMsgID: smsMsgID,
-		Sended:   time.Now(),
+		Service: service,
+		JID:     jid,
+		From:    from,
+		To:      to,
+		MsgID:   msgID,
+		SMSSeq:  seq,
+		Sended:  time.Now(),
 	}
 	// log.Printf(">: %#v\n", h.list[to])
 	h.mu.Unlock()

@@ -25,8 +25,8 @@ type DefaultDelivery struct {
 
 // SMSGate описывает конфигурацию для отправки SMS.
 type SMSGate struct {
-	SMS       *SMS
-	From      []string        `yaml:",omitempty"` // номер телефона, с которого отправляются SMS
+	SMPP      *SMPP
+	From      string          `yaml:",omitempty"` // номер телефона, с которого отправляются SMS
 	Check     time.Duration   `yaml:",omitempty"` // задержка перед проверкой статуса
 	Responses SMSTemplates    // список шаблонов ответов
 	Default   DefaultDelivery `yaml:",omitempty"`
@@ -35,51 +35,16 @@ type SMSGate struct {
 	history   History         // история отправленных сообщений
 }
 
-func (s *SMSGate) Send(serviceName, jid string, msgID int64, to, msg string) (smsMsgID string, err error) {
-	from := s.From[0]
+func (s *SMSGate) Send(serviceName, jid string, msgID int64, to, msg string) (seq uint32, err error) {
+	from := s.From
 	log.Printf("SMS from %q to %q", from, to)
-	smsMsgID, err = s.SMS.Send(from, to, msg)
+	seq, err = s.SMPP.Send(from, to, msg)
 	if err != nil {
 		return
 	}
-	s.history.Add(serviceName, jid, msgID, from, to, smsMsgID)
-	// // делаем проверку доставки сообщения
-	// go func() {
-	// 	status, err := s.Status(smsMsgID)
-	// 	if err != nil || status == "" || config == nil {
-	// 		return
-	// 	}
-	// 	service := config.Services[serviceName]
-	// 	if service == nil || service.Disabled {
-	// 		return
-	// 	}
-	// 	switch status {
-	// 	case "Successful":
-	// 		service.client.Send(service.handler.getMessage(
-	// 			jid, s.Responses.Delivered, to))
-	// 	default:
-	// 		service.client.Send(service.handler.getMessage(
-	// 			jid, s.Responses.Error, to+" - "+status))
-	// 	}
-	// 	return
-	// }()
+	s.history.Add(serviceName, jid, msgID, from, to, seq)
 	return
 }
-
-// func (s *SMSGate) Status(msgID int) (status string, err error) {
-// 	time.Sleep(s.Check)
-// 	delay := s.Check
-// 	if delay == 0 {
-// 		delay = time.Second * 10
-// 	}
-// 	for {
-// 		status, err = s.Sinch.Status(msgID)
-// 		if err != nil || status != "Pending" {
-// 			return
-// 		}
-// 		time.Sleep(delay)
-// 	}
-// }
 
 // func (s *SMSGate) IncomingHTTP(req *http.Request) (msg *sinch.IncomingSMS, err error) {
 // 	msg, err = s.Sinch.IncomingHTTP(req)

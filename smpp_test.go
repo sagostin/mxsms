@@ -2,24 +2,24 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"testing"
 	"time"
 )
 
 func TestSMPP(t *testing.T) {
-	sms := NewSMS("67.231.4.201:2775", "Zultys", "unmQF932")
-	defer sms.Close()
-	err := sms.Bind()
-	if err != nil {
+	smpp := &SMPP{Address: "67.231.4.201:2775", User: "Zultys", Password: "unmQF932"}
+	if err := smpp.Connect(); err != nil {
 		t.Fatal(err)
 	}
-	msgID, err := sms.Send("4086751475", "4086751455", fmt.Sprintf("Time message: %q",
+	defer smpp.Close()
+	msgID, err := smpp.Send("+14086751475", "+14154292837", fmt.Sprintf("Time message: %q",
 		time.Now().Format(time.RFC822)))
 	if err != nil {
-		fmt.Println("Send error:", err)
-		// t.Error("Send error:", err)
+		log.Println("Send error:", err)
 	} else {
-		fmt.Println("MsgID:", msgID)
+		log.Println("MsgID:", msgID)
 	}
 	time.Sleep(time.Second * 5)
+	log.Println("THE END")
 }

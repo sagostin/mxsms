@@ -38,6 +38,13 @@ func LoadConfig(filename string) (config *Config, err error) {
 
 // Start запускает соединение со всеми серверами, указанными в конфигурации.
 func (c *Config) Start() error {
+	c.SMPP.logger = log.New(logOutput, fmt.Sprintf("%-16s ", "SMPP"), logFlags)
+	// устанавливаем соединение с SMPP сервером
+	c.SMPP.logger.Printf("Connecting to %q...", c.SMPP.Address)
+	if err := c.SMPP.Connect(); err != nil {
+		c.SMPP.logger.Printf("Connection error: %v", err)
+		return err
+	}
 	isMoreServices := len(c.Services) > 1 // флаг, что определено несколько сервисов
 	// перебираем все сервисы, определенные в конфигурации
 	for name, s := range c.Services {
@@ -95,6 +102,7 @@ func (c *Config) Start() error {
 
 // Stop останавливает все запущенные сервисы.
 func (c *Config) Stop() {
+	c.SMPP.Close() // останавливаем соединение с SMPP сервером
 	// перебираем все сервисы, определенные в конфигурации
 	for _, s := range c.Services {
 		if !s.Disabled {
