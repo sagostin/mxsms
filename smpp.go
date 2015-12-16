@@ -80,8 +80,8 @@ func (s *SMPP) Connect() (err error) {
 				To:   pdu.GetField("destination_addr").String(),
 				Text: pdu.GetField("destination_addr").String(),
 			}
-			data_coding := pdu.GetField("destination_addr").Value().(int)
-			_ = data_coding
+			// data_coding := pdu.GetField("destination_addr").Value().(int)
+			// _ = data_coding
 			s.Incoming <- msg
 			pretty.Println(msg)
 			// Respond back to Deliver SM with Deliver SM Resp
