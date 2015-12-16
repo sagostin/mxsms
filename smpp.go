@@ -78,7 +78,7 @@ func (s *SMPP) Connect() (err error) {
 			msg := Message{
 				From: pdu.GetField("source_addr").String(),
 				To:   pdu.GetField("destination_addr").String(),
-				Text: pdu.GetField("destination_addr").String(),
+				Text: pdu.GetField("short_message").String(),
 			}
 			// data_coding := pdu.GetField("destination_addr").Value().(int)
 			// _ = data_coding
