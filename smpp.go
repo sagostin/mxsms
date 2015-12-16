@@ -67,6 +67,10 @@ func (s *SMPP) Connect() (err error) {
 		case smpp.SUBMIT_SM_RESP:
 			// message_id should match this with seq message
 			fmt.Println("SUBMIT_SM_RESP ID:", pdu.GetField("message_id").String())
+			for _, v := range pdu.MandatoryFieldsList() {
+				f := pdu.GetField(v)
+				fmt.Println("\t", v, ":", f)
+			}
 		case smpp.DELIVER_SM:
 			// received Deliver Sm
 			fmt.Println("DELIVER_SM:")
