@@ -8,7 +8,7 @@ import (
 )
 
 func TestSMPP(t *testing.T) {
-	smpp := &SMPP{Address: "67.231.4.201:2775", User: "Zultys", Password: "unmQF932"}
+	smpp := &SMPP{Address: []string{"67.231.4.201:2775"}, User: "Zultys", Password: "unmQF932"}
 	if err := smpp.Connect(); err != nil {
 		t.Fatal(err)
 	}

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"log"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -22,7 +24,7 @@ type Message struct {
 
 // SMPP описывает соединение с сервером SMPP.
 type SMPP struct {
-	Address    string        // адрес и порт SMPP сервера
+	Address    []string      // адрес и порт SMPP сервера
 	User       string        // логин для авторизации
 	Password   string        // пароль для авторизации
 	OnIncoming func(Message) // обработчик входящих сообщений
@@ -36,14 +38,18 @@ type SMPP struct {
 // В случае ошибки соединения возвращается ее описание и функция заканчивается. Рекомендуется
 // запускать ее в отдельном потоке для мониторинга подключения.
 func (s *SMPP) Connect() (err error) {
+	if len(s.Address) == 0 {
+		return errors.New("smpp server address is empty")
+	}
 	s.mu.Lock()
 	s.closing = false
 	s.mu.Unlock()
-	trx, err := smpp.NewTransceiver(s.Address, EnquireLinkDuration, smpp.Params{
-		smpp.SYSTEM_TYPE: "SMPP",
-		smpp.SYSTEM_ID:   s.User,
-		smpp.PASSWORD:    s.Password,
-	})
+	trx, err := smpp.NewTransceiver(s.Address[rand.Intn(len(s.Address))],
+		EnquireLinkDuration, smpp.Params{
+			smpp.SYSTEM_TYPE: "SMPP",
+			smpp.SYSTEM_ID:   s.User,
+			smpp.PASSWORD:    s.Password,
+		})
 	if err != nil {
 		return
 	}

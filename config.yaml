@@ -29,7 +29,9 @@ services:
 errordelay:        1s # reconnect delay
 smsgate:
   smpp:            # SMPP connection settings
-    address:       67.231.4.201:2775
+    address:       
+                   - 67.231.4.201:2775
+                   - 67.231.1.30:2775
     user:          Zultys
     password:      unmQF932
   from:            +14086751455
