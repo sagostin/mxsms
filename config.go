@@ -40,10 +40,11 @@ func LoadConfig(filename string) (config *Config, err error) {
 func (c *Config) Start() error {
 	// isMoreServices := len(c.Services) > 1 // флаг, что определено несколько сервисов
 	c.SMPP.logger = log.New(logOutput, fmt.Sprintf("%-16s ", "SMPP"), logFlags)
+	c.SMPP.OnIncoming = c.SMSGate.Incoming // подключаем обрабочик входящих
 	// устанавливаем соединение с SMPP сервером
 	go func() {
 		for {
-			c.SMPP.logger.Printf("Connecting to %q...", c.SMPP.Address)
+			c.SMPP.logger.Printf("Connecting to %v", c.SMPP.Address)
 			if err := c.SMPP.Connect(); err != nil {
 				c.SMPP.logger.Printf("Connection error: %v", err)
 			}

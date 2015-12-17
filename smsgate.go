@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/xml"
 	"fmt"
-	"log"
 	"sync/atomic"
 	"time"
 )
@@ -37,7 +36,6 @@ type SMSGate struct {
 
 func (s *SMSGate) Send(serviceName, jid string, msgID int64, to, msg string) (seq uint32, err error) {
 	from := s.From
-	log.Printf("SMS from %q to %q", from, to)
 	seq, err = s.SMPP.Send(from, to, msg)
 	if err != nil {
 		return
@@ -46,39 +44,31 @@ func (s *SMSGate) Send(serviceName, jid string, msgID int64, to, msg string) (se
 	return
 }
 
-// func (s *SMSGate) IncomingHTTP(req *http.Request) (msg *sinch.IncomingSMS, err error) {
-// 	msg, err = s.Sinch.IncomingHTTP(req)
-// 	if err != nil {
-// 		log.Println("Error incoming:", err)
-// 		return
-// 	}
-// 	incoming := s.Responses.Incoming
-// 	if incoming == "" {
-// 		incoming = "%s: %s"
-// 	}
-// 	from := msg.From.Endpoint
-// 	if len(from) == 11 {
-// 		from = "+" + from
-// 	}
-// 	var (
-// 		serviceName = s.Default.Service
-// 		JID         = s.Default.JID
-// 	)
-// 	if item := s.history.Get(from); item != nil {
-// 		serviceName = item.Service
-// 		JID = item.JID
-// 	}
-// 	if serviceName == "" || JID == "" {
-// 		return
-// 	}
-// 	service := config.Services[serviceName]
-// 	if service == nil {
-// 		return
-// 	}
-// 	service.client.Send(service.handler.getMessage(
-// 		JID, incoming, msg.From.Endpoint, msg.Message))
-// 	return
-// }
+// Incoming обрабатывает входящие сообщения
+func (s *SMSGate) Incoming(msg Message) {
+	incoming := s.Responses.Incoming
+	if incoming == "" {
+		incoming = "%s: %s"
+	}
+	var (
+		serviceName = s.Default.Service
+		JID         = s.Default.JID
+	)
+	if item := s.history.Get(msg.From); item != nil {
+		serviceName = item.Service
+		JID = item.JID
+	}
+	if serviceName == "" || JID == "" {
+		return
+	}
+	service := config.Services[serviceName]
+	if service == nil {
+		return
+	}
+	service.client.Send(service.handler.getMessage(
+		JID, incoming, msg.From, msg.Text))
+	return
+}
 
 // getMessage возвращает сформированную команду для отправки подтверждающего сообщения
 // на основе текста шаблона. Если текст шаблона пустой, то сообщение не отправляется

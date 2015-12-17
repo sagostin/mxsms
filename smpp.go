@@ -1,12 +1,14 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"sync"
 	"time"
 
-	"github.com/kr/pretty"
+	"golang.org/x/text/encoding/charmap"
+	"golang.org/x/text/encoding/unicode"
+	"golang.org/x/text/transform"
+
 	"github.com/mdigger/smpp"
 )
 
@@ -20,15 +22,14 @@ type Message struct {
 
 // SMPP описывает соединение с сервером SMPP.
 type SMPP struct {
-	Address  string         // адрес и порт SMPP сервера
-	User     string         // логин для авторизации
-	Password string         // пароль для авторизации
-	Encoding string         // кодировка исходящих сообщений
-	Incoming chan<- Message // чтение входящих сообщений
-	trx      *smpp.Transceiver
-	logger   *log.Logger
-	closing  bool
-	mu       sync.RWMutex
+	Address    string        // адрес и порт SMPP сервера
+	User       string        // логин для авторизации
+	Password   string        // пароль для авторизации
+	OnIncoming func(Message) // обработчик входящих сообщений
+	trx        *smpp.Transceiver
+	logger     *log.Logger
+	closing    bool
+	mu         sync.RWMutex
 }
 
 // Connect устанавливает соединение с сервером, авторизуется и начинает читать от него сообщения.
@@ -37,9 +38,6 @@ type SMPP struct {
 func (s *SMPP) Connect() (err error) {
 	s.mu.Lock()
 	s.closing = false
-	if s.Incoming == nil {
-		s.Incoming = make(chan Message, 1000)
-	}
 	s.mu.Unlock()
 	trx, err := smpp.NewTransceiver(s.Address, EnquireLinkDuration, smpp.Params{
 		smpp.SYSTEM_TYPE: "SMPP",
@@ -66,36 +64,49 @@ func (s *SMPP) Connect() (err error) {
 		switch pdu.GetHeader().Id {
 		case smpp.SUBMIT_SM_RESP:
 			// message_id should match this with seq message
-			fmt.Println("SUBMIT_SM_RESP ID:", pdu.GetField("message_id").String())
-			for _, v := range pdu.MandatoryFieldsList() {
-				f := pdu.GetField(v)
-				fmt.Println("\t", v, ":", f)
-			}
+			s.logger.Println("SUBMIT_SM_RESP ID:", pdu.GetField(smpp.MESSAGE_ID).String())
 		case smpp.DELIVER_SM:
 			// received Deliver Sm
-			fmt.Println("DELIVER_SM:")
 			// Print all fields
 			// for _, v := range pdu.MandatoryFieldsList() {
 			// 	f := pdu.GetField(v)
 			// 	fmt.Println("\t", v, ":", f)
 			// }
 			msg := Message{
-				From: pdu.GetField("source_addr").String(),
-				To:   pdu.GetField("destination_addr").String(),
-				Text: pdu.GetField("short_message").String(),
+				From: pdu.GetField(smpp.SOURCE_ADDR).String(),
+				To:   pdu.GetField(smpp.DESTINATION_ADDR).String(),
 			}
-			// data_coding := pdu.GetField("destination_addr").Value().(int)
-			// _ = data_coding
-			s.Incoming <- msg
-			pretty.Println(msg)
+			txt := pdu.GetField(smpp.SHORT_MESSAGE).ByteArray()
+			switch pdu.GetField(smpp.DATA_CODING).Value().(uint8) {
+			case 8: // UCS2
+				es, _, err := transform.Bytes(unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM).NewDecoder(), txt)
+				if err != nil {
+					msg.Text = string(txt)
+				} else {
+					msg.Text = string(es)
+				}
+			case 2: // latin1 (windows1252)
+				es, _, err := transform.Bytes(charmap.Windows1252.NewDecoder(), txt)
+				if err != nil {
+					msg.Text = string(txt)
+				} else {
+					msg.Text = string(es)
+				}
+			default: // raw
+				msg.Text = string(txt)
+			}
+			s.logger.Println("DELIVER_SM:", msg)
+			if s.OnIncoming != nil {
+				go s.OnIncoming(msg)
+			}
 			// Respond back to Deliver SM with Deliver SM Resp
 			err := trx.DeliverSmResp(pdu.GetHeader().Sequence, smpp.ESME_ROK)
 			if err != nil {
-				fmt.Println("DeliverSmResp err:", err)
+				s.logger.Println("DeliverSmResp err:", err)
 			}
 		case smpp.ENQUIRE_LINK_RESP: // ignore
 		default:
-			fmt.Println("PDU ID:", pdu.GetHeader().Id)
+			s.logger.Println("PDU ID:", pdu.GetHeader().Id)
 		}
 	}
 }
@@ -108,8 +119,39 @@ func (s *SMPP) Close() error {
 }
 
 func (s *SMPP) Send(from, to, msg string) (seq uint32, err error) {
+	var code int // тип кодировки
+	switch isCodepage(msg) {
+	case "latin1":
+		es, _, err := transform.String(charmap.Windows1252.NewEncoder(), msg)
+		if err == nil {
+			code = 2
+			msg = es
+		}
+	case "ucs2":
+		es, _, err := transform.String(
+			unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM).NewEncoder(), msg)
+		if err == nil {
+			code = 8
+			msg = es
+		}
+	default:
+	}
 	return s.trx.SubmitSm(from, to, msg, &smpp.Params{
 		smpp.DEST_ADDR_TON: 1,
 		smpp.DEST_ADDR_NPI: 1,
+		smpp.DATA_CODING:   code,
 	})
+}
+
+func isCodepage(s string) string {
+	result := "raw"
+	for _, r := range s {
+		if r > '\u00FF' {
+			return "ucs2"
+		}
+		if r > '\u007F' {
+			result = "latin1"
+		}
+	}
+	return result
 }

@@ -1,4 +1,16 @@
 services:
+  zultys-test:
+      server:
+      host:        10.30.2.221
+      port:        7778
+      secure:      true
+      skipverify:  true # skip verify selfsigned sertificate
+      timeout:     5s
+    login:
+      user:        smsgate
+      password:    9185
+    phones:
+      prefix:      1  # default phone prefix (without plus)
   xyzrd-mx: # unique server name
     server:
       host:        voip.xyzrd.com
@@ -12,20 +24,19 @@ services:
       #clear:       false
     phones:
       #short:       0
-      prefix:      1  # default phone prefix (without plus)
-    #disabled       false
+      prefix:      7  # default phone prefix (without plus)
+      disabled:    true
 errordelay:        1s # reconnect delay
 smsgate:
   smpp:            # SMPP connection settings
     address:       67.231.4.201:2775
     user:          Zultys
     password:      unmQF932
-    encoding:      raw # latin, ucs2
   from:            +14086751455
   maxlength:       160 # maximum message length
   default:         # delivery unknown SMS to
-    service:       xyzrd-mx
-    jid:           43884852083135871
+    service:       zultys-test # xyzrd-mx
+    jid:           44086340573989457 # 43884852083135871
   responses:
     nophone:       "No phone in the beginning of the message"
     incorrect:     "Invalid phone number: %s" 

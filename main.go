@@ -10,15 +10,15 @@ import (
 )
 
 var (
-	appName        = "MXSMS"                          // название приложения
-	version        = "0.6.0"                          // версия
-	date           = "2015-12-15"                     // дата сборки
-	build          = ""                               // номер сборки в git-репозитории
-	detailedLog    = false                            // вывод детальной информации в лог
-	logFlags       = log.LstdFlags                    // флаги для вывода в лог по умолчанию
-	logOutput      = os.Stderr                        // вывод для лога
-	logger         = log.New(logOutput, "", logFlags) // инициализируем вывод в лог
-	configFileName = "config.yaml"                    // имя конфигурационного файла
+	appName        = "MXSMS"                                           // название приложения
+	version        = "0.6.0"                                           // версия
+	date           = "2015-12-15"                                      // дата сборки
+	build          = ""                                                // номер сборки в git-репозитории
+	detailedLog    = false                                             // вывод детальной информации в лог
+	logFlags       = log.LstdFlags                                     // флаги для вывода в лог по умолчанию
+	logOutput      = os.Stderr                                         // вывод для лога
+	logger         = log.New(logOutput, "                 ", logFlags) // инициализируем вывод в лог
+	configFileName = "config.yaml"                                     // имя конфигурационного файла
 )
 
 var config *Config // загруженная и разобранная конфигурация
