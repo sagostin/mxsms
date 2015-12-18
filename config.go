@@ -42,18 +42,7 @@ func (c *Config) Start() error {
 	c.SMPP.logger = log.New(logOutput, fmt.Sprintf("%-16s ", "SMPP"), logFlags)
 	c.SMPP.OnIncoming = c.SMSGate.Incoming // подключаем обрабочик входящих
 	// устанавливаем соединение с SMPP сервером
-	go func() {
-		for {
-			c.SMPP.logger.Printf("Connecting to %v", c.SMPP.Address)
-			if err := c.SMPP.Connect(); err != nil {
-				c.SMPP.logger.Printf("Connection error: %v", err)
-			}
-			if c.SMPP.closing {
-				return
-			}
-			time.Sleep(c.ErrorDelay) // небольшая задержка перед повторным соединением
-		}
-	}()
+	c.SMPP.Connect()
 	// перебираем все сервисы, определенные в конфигурации
 	for name, s := range c.Services {
 		s.mu.Lock()

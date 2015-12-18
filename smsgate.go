@@ -4,7 +4,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"sync/atomic"
-	"time"
 )
 
 // SMSTemplates описывает шаблоны сообщений.
@@ -26,7 +25,6 @@ type DefaultDelivery struct {
 type SMSGate struct {
 	SMPP      *SMPP
 	From      string          `yaml:",omitempty"` // номер телефона, с которого отправляются SMS
-	Check     time.Duration   `yaml:",omitempty"` // задержка перед проверкой статуса
 	Responses SMSTemplates    // список шаблонов ответов
 	Default   DefaultDelivery `yaml:",omitempty"`
 	MaxLength int             `yaml:",omitempty"` // максимальная длинна сообщения

@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"log"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -24,36 +23,53 @@ type Message struct {
 
 // SMPP описывает соединение с сервером SMPP.
 type SMPP struct {
-	Address    []string      // адрес и порт SMPP сервера
-	User       string        // логин для авторизации
-	Password   string        // пароль для авторизации
-	OnIncoming func(Message) // обработчик входящих сообщений
-	trx        *smpp.Transceiver
+	Address    []string            // адрес и порт SMPP сервера
+	User       string              // логин для авторизации
+	Password   string              // пароль для авторизации
+	OnIncoming func(Message)       // обработчик входящих сообщений
+	trx        []*smpp.Transceiver // соединеия с сервером
 	logger     *log.Logger
 	closing    bool
 	mu         sync.RWMutex
 }
 
+func (s *SMPP) Connect() {
+	s.trx = make([]*smpp.Transceiver, len(s.Address))
+	for n := range s.Address {
+		// устанавливаем соединение с SMPP сервером
+		go func(n int) {
+			for {
+				s.logger.Printf("Connecting to %v", s.Address[n])
+				if err := s.connect(n); err != nil {
+					s.logger.Printf("Connection error: %v", err)
+				}
+				if s.closing {
+					return
+				}
+				time.Sleep(time.Second * 5) // небольшая задержка перед повторным соединением
+			}
+		}(n)
+	}
+}
+
 // Connect устанавливает соединение с сервером, авторизуется и начинает читать от него сообщения.
 // В случае ошибки соединения возвращается ее описание и функция заканчивается. Рекомендуется
 // запускать ее в отдельном потоке для мониторинга подключения.
-func (s *SMPP) Connect() (err error) {
-	if len(s.Address) == 0 {
-		return errors.New("smpp server address is empty")
-	}
+func (s *SMPP) connect(n int) (err error) {
 	s.mu.Lock()
 	s.closing = false
 	s.mu.Unlock()
-	trx, err := smpp.NewTransceiver(s.Address[rand.Intn(len(s.Address))],
-		EnquireLinkDuration, smpp.Params{
-			smpp.SYSTEM_TYPE: "SMPP",
-			smpp.SYSTEM_ID:   s.User,
-			smpp.PASSWORD:    s.Password,
-		})
+	trx, err := smpp.NewTransceiver(s.Address[n], EnquireLinkDuration, smpp.Params{
+		smpp.SYSTEM_TYPE: "SMPP",
+		smpp.SYSTEM_ID:   s.User,
+		smpp.PASSWORD:    s.Password,
+	})
 	if err != nil {
 		return
 	}
-	s.trx = trx
+	s.mu.Lock()
+	s.trx[n] = trx
+	s.mu.Unlock()
 	// start reading PDUs
 	for {
 		pdu, err := trx.Read() // This is blocking
@@ -61,10 +77,10 @@ func (s *SMPP) Connect() (err error) {
 			s.mu.RLock()
 			if s.closing { // проверяем, что соединения закрывается нами
 				s.mu.RUnlock()
-				return nil
+				err = nil
 			}
 			s.mu.RUnlock()
-			return err
+			break
 		}
 		// Transceiver auto handles EnquireLinks
 		switch pdu.GetHeader().Id {
@@ -115,13 +131,21 @@ func (s *SMPP) Connect() (err error) {
 			s.logger.Println("PDU ID:", pdu.GetHeader().Id)
 		}
 	}
+	s.mu.Lock()
+	s.trx[n] = nil
+	s.mu.Unlock()
+	return
 }
 
-func (s *SMPP) Close() error {
+func (s *SMPP) Close() {
 	s.mu.Lock()
 	s.closing = true
+	for _, trx := range s.trx {
+		if trx != nil {
+			trx.Close()
+		}
+	}
 	s.mu.Unlock()
-	return s.trx.Close()
 }
 
 func (s *SMPP) Send(from, to, msg string) (seq uint32, err error) {
@@ -142,7 +166,17 @@ func (s *SMPP) Send(from, to, msg string) (seq uint32, err error) {
 		}
 	default:
 	}
-	return s.trx.SubmitSm(from, to, msg, &smpp.Params{
+	var trx *smpp.Transceiver
+	for _, t := range s.trx {
+		if t != nil {
+			trx = t
+		}
+	}
+	if trx == nil {
+		err = errors.New("smpp: not connected")
+		return
+	}
+	return trx.SubmitSm(from, to, msg, &smpp.Params{
 		smpp.DEST_ADDR_TON: 1,
 		smpp.DEST_ADDR_NPI: 1,
 		smpp.DATA_CODING:   code,
