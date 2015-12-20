@@ -176,7 +176,7 @@ func (s *SMPP) Send(from, to, msg string) (seq uint32, err error) {
 		err = errors.New("smpp: not connected")
 		return
 	}
-	return trx.SubmitSm(from, to, msg, &smpp.Params{
+	return trx.SubmitSm(from, to, msg, smpp.Params{
 		smpp.DEST_ADDR_TON: 1,
 		smpp.DEST_ADDR_NPI: 1,
 		smpp.DATA_CODING:   code,

@@ -64,5 +64,4 @@ func (s *Service) Stop() error {
 	}
 	s.logger.Println("Stoping service")
 	return s.client.Close() // останавливаем соединение с сервером
-
 }

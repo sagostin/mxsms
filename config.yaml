@@ -25,7 +25,7 @@ services:
     phones:
       #short:       0
       prefix:      7  # default phone prefix (without plus)
-      disabled:    true
+    disabled:    true
 errordelay:        1s # reconnect delay
 smsgate:
   smpp:            # SMPP connection settings
