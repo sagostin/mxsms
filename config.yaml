@@ -1,7 +1,7 @@
 mx:
-  xyzrd:
+  zultys-mx:
     server:
-      host: voip.xyzrd.com
+      host: 10.30.2.221
       port: 7778
       secure: true
       skipVerify: true
@@ -9,10 +9,10 @@ mx:
       reconnectDelay: 30s
       maxError: 5
     login:
-      user: d3
+      user: smsgate
       password: "9185"
     phones:
-      defaultPrefix: "7"
+      defaultPrefix: "1"
       from:
       - "14086751455"
       - "14086751475"
@@ -37,5 +37,5 @@ smsgate:
       SMS from %q
       %s
   defaultDelivery:
-    service: xyzrd
-    jid: "43884852083135871"
+    service: zultys-mx
+    jid: "44086340573989457"
