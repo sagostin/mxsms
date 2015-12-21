@@ -9,6 +9,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	logrus_syslog "github.com/Sirupsen/logrus/hooks/syslog"
+	"github.com/labstack/gommon/log"
 )
 
 var (
@@ -18,7 +19,7 @@ var (
 	build          = ""                      // номер сборки в git-репозитории
 	configFileName = "config.yaml"           // имя конфигурационного файла
 	config         *Config                   // загруженная и разобранная конфигурация
-	log            = logrus.StandardLogger() // инициализируем сбор логов
+	llog           = logrus.StandardLogger() // инициализируем сбор логов
 )
 
 const MaxErrors = 10 // максимально допустимое количество ошибок подключения
@@ -35,7 +36,7 @@ func main() {
 	flag.Parse() // разбираем параметры запуска приложения
 
 	// выводим в лог информацию о приложении и версии
-	logEntry := log.WithField("version", version)
+	logEntry := llog.WithField("version", version)
 	if build != "" { // добавляем билд к номеру версии
 		logEntry = logEntry.WithField("build", build)
 	}
@@ -47,7 +48,7 @@ func main() {
 	// запускаем бесконечный цикл чтения конфигурации и установки соединения
 	for {
 		// загружаем и разбираем конфигурационный файл
-		logEntry := log.WithField("filename", configFileName)
+		logEntry := llog.WithField("filename", configFileName)
 		var err error
 		config, err = LoadConfig(configFileName) // загружаем конфигурационный файл
 		if err != nil {

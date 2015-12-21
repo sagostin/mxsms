@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/mdigger/mxsms2/sms"
 )
@@ -84,6 +85,13 @@ func (s *SMSGate) Receive(msg sms.Received) {
 	mx := config.MX[mxName]
 	if mx == nil {
 		return
+	}
+	if mx.handler == nil {
+		llog.Debug("MX Handler not initialized... Wait 2 seconds")
+		time.Sleep(time.Second * 2)
+	}
+	if mx.handler == nil {
+		llog.Warning("MX Handler not initialized...")
 	}
 	mx.client.Send(mx.handler.getMessage(
 		jid, incoming, msg.From, msg.Text))
