@@ -9,7 +9,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	logrus_syslog "github.com/Sirupsen/logrus/hooks/syslog"
-	"github.com/labstack/gommon/log"
+	"github.com/x-cray/logrus-prefixed-formatter"
 )
 
 var (
@@ -26,7 +26,8 @@ const MaxErrors = 10 // максимально допустимое количе
 
 func main() {
 	logrus.SetLevel(logrus.DebugLevel) // уровень отладки
-	logrus.SetFormatter(new(logrus.JSONFormatter))
+	// logrus.SetFormatter(new(logrus.JSONFormatter))
+	logrus.SetFormatter(new(prefixed.TextFormatter))
 	hook, err := logrus_syslog.NewSyslogHook("", "", syslog.LOG_INFO, "")
 	if err == nil {
 		logrus.AddHook(hook)
@@ -64,10 +65,10 @@ func main() {
 		config.MXClose()       // останавливаем соединение с MX серверами
 		// проверяем, что сигнал не является сигналом перечитать конфиг
 		if signal != syscall.SIGUSR1 {
-			log.Info("The end")
+			llog.Info("The end")
 			return // заканчиваем нашу работу
 		}
-		log.Info("Reload") // перечитываем конфиг и начинаем все с начала
+		llog.Info("Reload") // перечитываем конфиг и начинаем все с начала
 	}
 }
 
