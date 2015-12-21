@@ -9,9 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/text/encoding/unicode"
-	"golang.org/x/text/transform"
-
 	"github.com/Sirupsen/logrus"
 	"github.com/mdigger/smpp"
 )
@@ -70,21 +67,15 @@ func (trx *Transceiver) Send(sms *SendMessage) error {
 	for _, r := range text { // перебираем текст по символьно
 		// пока оставим только юникодную кодировку для всех случаев расширенных символов
 		if r > '\u007F' { // используются не ASCII символы
+			code = 3
+		}
+		if r > '\u00FF' { // используются не ASCII символы
 			code = 8
 			break
 		}
 	}
 	// переводим текст в нужную кодировку
-	var enc transform.Transformer // трансформер текста
-	switch code {                 // в зависимости от подходящей кодировки выбираем соответствующий метод кодирования
-	case 8: // ucs8
-		enc = unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM).NewEncoder()
-		if es, _, err := transform.String(enc, text); err == nil {
-			text = es
-		} else {
-			return err
-		}
-	}
+	text = Encode(uint8(code), []byte(text))
 	// формируем параметры для отправки сообщения
 	params := smpp.Params{
 		smpp.DEST_ADDR_TON:       1,
