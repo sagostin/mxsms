@@ -22,7 +22,7 @@ var (
 const MaxErrors = 10 // максимально допустимое количество ошибок подключения
 
 func main() {
-	logrus.SetLevel(logrus.DebugLevel) // уровень отладки
+	// logrus.SetLevel(logrus.DebugLevel) // уровень отладки
 	flag.StringVar(&configFileName, "config", configFileName, "configuration `fileName`")
 	flag.Parse() // разбираем параметры запуска приложения
 
