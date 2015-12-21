@@ -46,12 +46,17 @@ func (h *History) Get(from, to string) (mxName, jid string) {
 	return item.MXName, item.JID
 }
 
-func (h *History) GetFrom(froms []string, to string) (from string) {
+func (h *History) GetFrom(froms []string, to, jid string) (from string) {
 	h.mu.RLock()
+	defer h.mu.RUnlock()
 	items := h.list[to]
 	if items == nil {
-		h.mu.RUnlock()
 		return froms[0]
+	}
+	for from, item := range items {
+		if item.JID == jid {
+			return from
+		}
 	}
 	var (
 		sended   time.Time
@@ -60,7 +65,6 @@ func (h *History) GetFrom(froms []string, to string) (from string) {
 	for _, from := range froms {
 		item, ok := items[from]
 		if !ok {
-			h.mu.RUnlock()
 			return from
 		}
 		if sended.IsZero() || item.Sended.Before(sended) {
@@ -68,6 +72,5 @@ func (h *History) GetFrom(froms []string, to string) (from string) {
 			sendFrom = from
 		}
 	}
-	h.mu.RUnlock()
 	return sendFrom
 }

@@ -53,7 +53,7 @@ func (s *SMSGate) Close() {
 }
 
 func (s *SMSGate) Send(mxName, jid string, msgID int64, to, msg string) (err error) {
-	from := s.history.GetFrom(config.MX[mxName].From, to) // получаем лучший исходящий номер
+	from := s.history.GetFrom(config.MX[mxName].From, to, jid) // получаем лучший исходящий номер
 	if from == "" {
 		return errors.New("from phone is empty")
 	}
