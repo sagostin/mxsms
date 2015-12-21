@@ -25,6 +25,7 @@ const MaxErrors = 10 // максимально допустимое количе
 
 func main() {
 	logrus.SetLevel(logrus.DebugLevel) // уровень отладки
+	logrus.SetFormatter(new(logrus.JSONFormatter))
 	hook, err := logrus_syslog.NewSyslogHook("", "", syslog.LOG_INFO, "")
 	if err == nil {
 		logrus.AddHook(hook)
