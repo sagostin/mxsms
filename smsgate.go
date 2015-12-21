@@ -74,6 +74,13 @@ func (s *SMSGate) Receive(msg sms.Received) {
 	if incoming == "" {
 		incoming = "%s: %s"
 	}
+	// избавляемся от плюсов
+	if msg.From[0] == '+' {
+		msg.From = msg.From[1:]
+	}
+	if msg.To[0] == '+' {
+		msg.To = msg.To[1:]
+	}
 	mxName, jid := s.history.Get(msg.To, msg.From)
 	if mxName == "" || jid == "" {
 		mxName = s.Default.Service
