@@ -58,7 +58,7 @@ func (mh *MessageHandle) Handle(eventData interface{}) (err error) {
 	submatch := mh.phoneRE.FindStringSubmatch(data.Body)
 	if submatch == nil { // телефонный номер не найден
 		logEntry.Info("Ignore: no phone")
-		return mh.client.Send(mh.getMessage(data.From, mh.Responses.NoPhone, ""))
+		return mh.client.Send(mh.getMessage(data.From, mh.Responses.NoPhone))
 	}
 	phone := submatch[1] // телефонный номер найден в сообщении
 	// анализируем длинну телефонного номера и приводим номер к стандарту
