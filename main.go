@@ -2,13 +2,11 @@ package main
 
 import (
 	"flag"
-	"log/syslog"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/Sirupsen/logrus"
-	logrus_syslog "github.com/Sirupsen/logrus/hooks/syslog"
 	"github.com/x-cray/logrus-prefixed-formatter"
 )
 
@@ -28,10 +26,10 @@ func main() {
 	logrus.SetLevel(logrus.DebugLevel) // уровень отладки
 	// logrus.SetFormatter(new(logrus.JSONFormatter))
 	logrus.SetFormatter(new(prefixed.TextFormatter))
-	hook, err := logrus_syslog.NewSyslogHook("", "", syslog.LOG_INFO, "")
-	if err == nil {
-		logrus.AddHook(hook)
-	}
+	// hook, err := logrus_syslog.NewSyslogHook("", "", syslog.LOG_INFO, "")
+	// if err == nil {
+	// 	logrus.AddHook(hook)
+	// }
 
 	flag.StringVar(&configFileName, "config", configFileName, "configuration `fileName`")
 	flag.Parse() // разбираем параметры запуска приложения
