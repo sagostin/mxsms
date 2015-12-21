@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
+
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/transform"
@@ -115,6 +117,7 @@ func Decode(code uint8, text []byte) string {
 			return string(es)
 		}
 	}
+	logrus.StandardLogger().Debugln("Decode from", string(text), "to", GSM0338ToUTF8(string(text)))
 	return GSM0338ToUTF8(string(text))
 }
 
@@ -131,5 +134,6 @@ func Encode(code uint8, text []byte) string {
 			return string(es)
 		}
 	}
+	logrus.StandardLogger().Debugln("Decode from", string(text), "to", UTF8ToGsm0338(string(text)))
 	return UTF8ToGsm0338(string(text))
 }
