@@ -134,6 +134,6 @@ func Encode(code uint8, text []byte) string {
 			return string(es)
 		}
 	}
-	logrus.StandardLogger().Debugln("Decode from", string(text), "to", UTF8ToGsm0338(string(text)))
+	logrus.StandardLogger().Debugln("Encode from", string(text), "to", UTF8ToGsm0338(string(text)))
 	return UTF8ToGsm0338(string(text))
 }
