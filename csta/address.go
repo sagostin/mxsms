@@ -15,12 +15,13 @@ var (
 
 // Addr описывает адрес и параметры для подключения к серверу MX по CSTA-протоколу.
 type Addr struct {
-	Network    string        `yaml:",omitempty"` // тип соединения
-	Host       string        // адрес сервера
-	Port       int           `yaml:",omitempty"` // порт
-	Secure     bool          `yaml:",omitempty"` // использовать защищенное соединение
-	SkipVerify bool          `yaml:",omitempty"` // не проверять валидность сертификата
-	Timeout    time.Duration `yaml:",omitempty"` // время ожидания подключения
+	Host           string        // адрес сервера
+	Port           int           `yaml:",omitempty"`               // порт
+	Secure         bool          `yaml:",omitempty"`               // использовать защищенное соединение
+	SkipVerify     bool          `yaml:"skipVerify,omitempty"`     // не проверять валидность сертификата
+	Timeout        time.Duration `yaml:",omitempty"`               // время ожидания подключения
+	ReconnectDelay time.Duration `yaml:"reconnectDelay,omitempty"` // время задержки между повторным подключением к серверу
+	MaxError       int           `yaml:"maxError,omitempty"`       // максимально допустимое количество ошибок
 }
 
 // FullAddr возвращает полный адрес сервера, включая порт.
@@ -50,15 +51,11 @@ func (a *Addr) Dial() (net.Conn, error) {
 		Timeout:   timeout,          // максимальное время ожидания соединения
 		KeepAlive: time.Second * 10, // интервал поддержки соединения
 	}
-	network := a.Network // название сетевого протокола
-	if network == "" {
-		network = "tcp"
-	}
 	addr := a.FullAddr() // получаем полный адрес, включая порт
 	if a.Secure {        // устанавливаем защищенное соединение
 		// не проверяем валидность сертификатов, если задано в настройках
-		return tls.DialWithDialer(dialer, network, addr,
+		return tls.DialWithDialer(dialer, "tcp", addr,
 			&tls.Config{InsecureSkipVerify: a.SkipVerify})
 	}
-	return dialer.Dial(network, addr) // устанавливаем не защищенное соединение
+	return dialer.Dial("tcp", addr) // устанавливаем не защищенное соединение
 }

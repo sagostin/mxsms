@@ -1,48 +1,25 @@
-services:
-  zultys-test:
+mx:
+  xyzrd:
     server:
-      host:        10.30.2.221
-      port:        7778
-      secure:      true
-      skipverify:  true # skip verify selfsigned sertificate
-      timeout:     5s
+      host: voip.xyzrd.com
+      port: 7778
+      secure: true
+      skipVerify: true
+      timeout: 5s
+      reconnectDelay: 2s
     login:
-      user:        smsgate
-      password:    9185
+      user: d3
+      password: "9185"
     phones:
-      prefix:      1  # default phone prefix (without plus)
-  xyzrd-mx: # unique server name
-    server:
-      host:        voip.xyzrd.com
-      port:        7778
-      secure:      true
-      skipverify:  true # skip verify selfsigned sertificate
-      timeout:     5s
-    login:
-      user:        d3
-      password:    9185
-      #clear:       false
-    phones:
-      #short:       0
-      prefix:      7  # default phone prefix (without plus)
-    disabled:    true
-errordelay:        1s # reconnect delay
-smsgate:
-  smpp:            # SMPP connection settings
-    address:       
-                   - 67.231.4.201:2775
-                   - 67.231.1.30:2775
-    user:          Zultys
-    password:      unmQF932
-  from:            +14086751455
-  maxlength:       160 # maximum message length
-  default:         # delivery unknown SMS to
-    service:       zultys-test # xyzrd-mx
-    jid:           44086340573989457 # 43884852083135871
-  responses:
-    nophone:       "No phone in the beginning of the message"
-    incorrect:     "Invalid phone number: %s" 
-    #accepted:      "SMS accepted: [%s]"
-    delivered:     "SMS delivered to %s"
-    error:         "SMS send error: %s"
-    incoming:      "SMS from %s\n%s"
+      defaultPrefix: "7"
+      from:
+      - "14086751455"
+      - "14086751475"
+smpp:
+  address:
+  - 67.231.1.30:2775
+  - 67.231.4.201:2775
+  systemId: Zultys
+  password: unmQF932
+  enquireDuration: 1m0s
+  maxParts: 3

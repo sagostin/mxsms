@@ -6,12 +6,13 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/Sirupsen/logrus"
 )
 
 // Client описывает соединение с сервером и работу с ним.
@@ -20,8 +21,7 @@ type Client struct {
 	counter   uint32               // счетчик отправленных команд
 	keepAlive *time.Timer          // таймер для отправки keep-alive сообщений
 	mu        sync.Mutex           // блокировка разделяемого доступа
-	logger    *log.Logger          // вывод в лог
-	isFullLog bool                 // флаг вывода подробного лога
+	Logger    *logrus.Entry        // вывод в лог
 	isClosed  bool                 // флаг закрытого соединения
 	handlers  map[Handler]EventMap // дополнительные обработчики событий
 }
@@ -29,17 +29,7 @@ type Client struct {
 // NewClient возвращает нового инициализированного клиента для работы с MX-сервером, который
 // работает поверх установленного соединения.
 func NewClient(conn net.Conn) *Client {
-	return &Client{conn: conn}
-}
-
-// SetLogger инициализирует ведение логов всех действий. Параметр detailed указывает, следует ли
-// выводить в лог только название событий или полный XML-текст команд и получаемых с сервера
-// событий.
-func (c *Client) SetLogger(logger *log.Logger, detailed bool) {
-	c.mu.Lock()
-	c.logger = logger
-	c.isFullLog = detailed
-	c.mu.Unlock()
+	return &Client{conn: conn, Logger: logrus.NewEntry(logrus.StandardLogger())}
 }
 
 // AddHandler добавляет обработчики событий, которые будут использоваться при разборе событий,
@@ -123,15 +113,10 @@ func (c *Client) Send(cmd interface{}) (err error) {
 		c.keepAlive.Reset(DefaultKeepAliveDuration) // отодвигаем таймер на попозже
 		c.mu.Unlock()
 	}
-	if c.logger != nil { // выводим в лог информацию об отправленной команде
-		var logData string
-		if c.isFullLog {
-			logData = string(dataCmd)
-		} else {
-			logData = xmlName(dataCmd)
-		}
-		c.logger.Printf("← [%04d] %s", counter, logData)
-	}
+	c.Logger.WithFields(logrus.Fields{
+		"id":       counter,
+		"commands": cmd,
+	}).Debug("Send")
 	return nil
 }
 
@@ -168,9 +153,7 @@ func (c *Client) Reading() (err error) {
 		// идентификатор команды от сервера
 		id, err := strconv.Atoi(string(header[4:]))
 		if err != nil {
-			if c.logger != nil { // выводим влог информацию об ошибке
-				c.logger.Println("Ignore message with bad ID:", err)
-			}
+			c.Logger.WithError(err).Debug("Ignore message with bad ID")
 			continue // пропускаем команду с непонятным номером
 		}
 		// инициализируем XML-декодер, получаем имя события и данные
@@ -179,8 +162,8 @@ func (c *Client) Reading() (err error) {
 		offset := xmlDecoder.InputOffset() // сохраняем смещение от начала
 		token, err := xmlDecoder.Token()   // читаем название XML-элемента
 		if err != nil {
-			if err != io.EOF && c.logger != nil { // выводим в лог
-				log.Println("Ignore error token:", err)
+			if err != io.EOF { // выводим в лог
+				c.Logger.WithError(err).Debug("Ignore error token")
 			}
 			continue // игнорируем сообщения с неверным XML - читаем следующее сообщение
 		}
@@ -190,15 +173,10 @@ func (c *Client) Reading() (err error) {
 			goto readingToken
 		}
 		eventName := startToken.Name.Local // получаем название события
-		if c.logger != nil {
-			var logData string
-			if c.isFullLog {
-				logData = string(data[offset:])
-			} else {
-				logData = eventName
-			}
-			c.logger.Printf("→ [%04d] %s", id, logData)
-		}
+		c.Logger.WithFields(logrus.Fields{
+			"id":   id,
+			"data": string(data[offset:]),
+		}).Debug("Receive")
 		// обработка внутренних событий
 		if eventData := defaultClientEvents.GetDataPointer(eventName); eventData != nil {
 			// разбираем сами данные, вернувшиеся в описании события
@@ -224,9 +202,8 @@ func (c *Client) Reading() (err error) {
 			}
 			// разбираем сами данные, вернувшиеся в описании события
 			if err := xmlDecoder.DecodeElement(eventData, &startToken); err != nil {
-				if c.logger != nil {
-					c.logger.Printf("Ignore decode XML error for event %q: %v", eventName, err)
-				}
+				c.Logger.WithError(err).WithField("event", eventName).
+					Debug("Ignore decode XML error")
 				continue // игнорируем элементы, которые не смогли разобрать
 			}
 			// передаем разобранное событие для обработки
@@ -264,14 +241,4 @@ var bufPool = sync.Pool{
 	New: func() interface{} {
 		return new(bytes.Buffer) // инициализируем и возвращаем новый буфер
 	},
-}
-
-// xmlName возвращает имя корневого XML-элемента.
-func xmlName(cmd []byte) string {
-	for i, char := range string(cmd) { // перебираем номер позиции и руну
-		if char == ' ' || char == '/' || char == '>' {
-			return string(cmd[1:i]) // обрезаем первый символ и до найденной руны
-		}
-	}
-	return string(cmd) // мы не смогли обрезать имя корневого элемента - возвращаем полную строку
 }
