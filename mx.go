@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/Sirupsen/logrus"
-	"github.com/mdigger/mxsms3/csta"
+	"github.com/mdigger/mxsms2/csta"
 )
 
 // PhoneInfo описывает правила разбора телефонных номеров
@@ -21,6 +21,7 @@ type MX struct {
 	PhoneInfo  `yaml:"phones"` // информация для разбора телефонных номеров
 	Disabled   bool            `yaml:",omitempty"` // флаг игнорируемого сервиса
 	Logger     *logrus.Entry   `yaml:"-"`          // лог для вывода информации о сервисе
+	handler    *MessageHandle  // обработчик сообщений чата
 	client     *csta.Client    // клиент соединения с MX-сервером
 }
 
@@ -38,19 +39,22 @@ func (mx *MX) Connect() error {
 	}
 	conn, err := mx.Addr.Dial()
 	if err != nil {
-		mx.Logger.WithError(err).Error("Connecting error")
+		mx.Logger.WithError(err).Error("MX Connecting error")
 		return err // возвращаем ошибку установки соединения с сервером
 	}
-	mx.Logger.WithField("host", mx.Addr.FullAddr()).Info("Connected")
+	mx.Logger.WithField("host", mx.Addr.FullAddr()).Info("MX Connected")
 	// инициализируем клиента
 	client := csta.NewClient(conn)
 	defer client.Close()
 	client.Logger = mx.Logger
+	// инициализируем обработчик сообщений
+	mx.handler = NewMessageHandler(config.SMSGate, mx)
+	client.AddHandler(mx.handler)
 	if err := client.Login(mx.Login); err != nil {
 		mx.Logger.WithError(err).Error("Authorizing error")
 		return err // ошибка отсылки авторизационной команды на сервер
 	}
-	mx.Logger.WithField("login", mx.Login.User).Info("Authorized")
+	mx.Logger.WithField("login", mx.Login.User).Info("MX Authorized")
 	mx.client = client
 	// запускаем процесс чтения ответов от сервера
 	err = client.Reading()
@@ -65,6 +69,6 @@ func (mx *MX) Close() error {
 	if mx.client == nil {
 		return nil // клиент подключения к серверу не инициализирован
 	}
-	mx.Logger.Info("Close")
+	mx.Logger.Info("MX Close")
 	return mx.client.Close() // останавливаем соединение с сервером
 }

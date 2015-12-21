@@ -1,12 +1,14 @@
-package main
+package sms
 
 import (
+	"bytes"
+	"io"
 	"math/rand"
 	"regexp"
 	"strconv"
+	"sync"
 	"time"
 
-	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/transform"
 
@@ -14,11 +16,15 @@ import (
 	"github.com/mdigger/smpp"
 )
 
+var MaxParts = 8 // максимальное количество частей, на которые разрезается длинное сообщение
+
 // Transceiver описывает соединение с SMPP-сервером и позволяет работать с ним.
 type Transceiver struct {
 	addr              string        // адрес SMPP-сервера
 	*smpp.Transceiver               // соединение с сервером
 	Logger            *logrus.Entry // вывод логов
+	isClosed          bool          // флаг закрытого соединения
+	mu                sync.Mutex    // блокировка разделяемого доступа
 }
 
 // NewTransceiver устаналвивает соединение с SMPP-сервером и возвращает его.
@@ -40,11 +46,24 @@ func (trx *Transceiver) Close() error {
 	if trx.Transceiver == nil {
 		return nil
 	}
+	trx.mu.Lock()
+	trx.isClosed = true // взводим флаг закрытого соединения
+	trx.mu.Unlock()
+	trx.Logger.Info("SMPP Close")
 	return trx.Transceiver.Close()
 }
 
-// Send отправляет SMS-сообщение на сервер.
-func (trx *Transceiver) Send(sms SMSSendMessage) (seq uint32, err error) {
+// Send отправляет SMS-сообщение на сервер. В ответ возвращается один или несколько
+// внутренних номеров отпраленного сообщения.
+func (trx *Transceiver) Send(sms *SendMessage) error {
+	if trx.Transceiver == nil || trx.isClosed {
+		return io.ErrClosedPipe // соединение не установлено или закрыто
+	}
+	logEntry := trx.Logger.WithFields(logrus.Fields{
+		"from": sms.From,
+		"to":   sms.To,
+	})
+	logEntry.Debugln("Send SMS:", sms.Text)
 	text := sms.Text
 	// определяем кодировку сообщения
 	var code int             // номер кодировки
@@ -62,6 +81,8 @@ func (trx *Transceiver) Send(sms SMSSendMessage) (seq uint32, err error) {
 		enc = unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM).NewEncoder()
 		if es, _, err := transform.String(enc, text); err == nil {
 			text = es
+		} else {
+			return err
 		}
 	}
 	// формируем параметры для отправки сообщения
@@ -81,28 +102,29 @@ func (trx *Transceiver) Send(sms SMSSendMessage) (seq uint32, err error) {
 		maxOneMessageLength = 140
 		maxMultiplyMessageLength = 134
 	}
-	logEntry := trx.Logger.WithFields(logrus.Fields{
-		"from": sms.From,
-		"to":   sms.To,
-		"code": code,
-	})
+	logEntry = logEntry.WithField("code", code)
 	// проверяем, что сообщение умещается в одно
 	if len(text) <= maxOneMessageLength {
 		logEntry.Info("Send message")
-		return trx.Transceiver.SubmitSm(sms.From, sms.To, text, params) // отправляем как есть
+		seq, err := trx.Transceiver.SubmitSm(sms.From, sms.To, text, params) // отправляем как есть
+		if err == nil {
+			sms.Seq = []uint32{seq}
+		}
+		return err
 	}
 	// сообщение необходимо разбить на несколько
 	params[smpp.ESM_CLASS] = 0x40 // выставляем специальный тип, что используется склеивание текста
 	// считаем количество необходимых частей
 	count := (len(text) + maxMultiplyMessageLength - 1) / maxMultiplyMessageLength
-	if count > 3 {
-		count = 3 // устанавливаем максимальное количество частей
+	if count > MaxParts {
+		count = MaxParts // устанавливаем максимальное количество частей
 	}
 	// формируем "заголовок" UDH-строки СМС
 	// в последнем поле хранится счетчик сообщения, в предпоследнем — количество,
 	// а передним ним - случайный идентификатор всей группы сообщений
 	udh := []byte{0x5, 0x0, 0x3, byte(rand.Intn(0xff) + 1), byte(count), 0x0}
 	// перебираем все части и отправляем их на сервер
+	sms.Seq = make([]uint32, 0, count) // инициализируем список идентификаторов
 	for i := 0; i < count; i++ {
 		udh[5] = byte(i + 1)                    // добавляем в заголовок порядковый номер
 		start := i * maxMultiplyMessageLength   // начала фрагмента текста
@@ -113,22 +135,23 @@ func (trx *Transceiver) Send(sms SMSSendMessage) (seq uint32, err error) {
 		// объединяем заголовок с куском текста
 		msg := string(udh) + text[start:end]
 		// fmt.Println(">", msg, "[", len(msg), "]")
-		logEntry.WithField("type", "multiple").WithFields(logrus.Fields{
+		logEntry.WithFields(logrus.Fields{
 			"count": i + 1,
 			"total": count,
 		}).Info("Send message")
-		seq, err = trx.Transceiver.SubmitSm(sms.From, sms.To, msg, params) // отправляем
+		seq, err := trx.Transceiver.SubmitSm(sms.From, sms.To, msg, params) // отправляем
 		if err != nil {
-			return seq, err // в случае ошибки возвращаем информацию о ней и прерываемся
+			return err // в случае ошибки возвращаем информацию о ней и прерываемся
 		}
+		sms.Seq = append(sms.Seq, seq)
 	}
-	return
+	return nil
 }
 
 // sending принимает сообщения из канала и отправляет их на сервер
-func (trx *Transceiver) sending(send <-chan SMSSendMessage) {
+func (trx *Transceiver) sending(send <-chan *SendMessage) {
 	for msg := range send {
-		_, err := trx.Send(msg)
+		err := trx.Send(msg)
 		if err != nil {
 			trx.Logger.WithError(err).Error("Send error")
 		}
@@ -141,11 +164,21 @@ var reStatus = regexp.MustCompile(`^\s*id:(\d+) sub:(\d+) dlvrd:(\d+) submit dat
 const statusTimeFormat = `0601021504` // формат представления даты в ответе со статусом
 
 // reading запускает синхронный процесс чтения данных, получаемых от сервера.
-func (trx *Transceiver) reading(receivedChan chan<- SMSReceivedMessage,
-	statusChan chan<- SMSStatus, responseChan chan<- SMSSendResponse) error {
+func (trx *Transceiver) reading(receive chan<- interface{}) (err error) {
+	// по окночании сбрасываем ошибку, если соединение было закрыто через
+	// остановку подключения методом Close().
+	defer func() {
+		if err != nil && trx.isClosed {
+			err = nil // сбрасываем описание ошибки, если соединение было корректно закрыто
+		}
+	}()
+	incomming := make(map[uint8][][]byte) // кеш входящих сообщений
 	for {
 		pdu, err := trx.Read() // Читаем сообщение от сервера
 		if err != nil {
+			if !trx.isClosed {
+				receive <- err // отдаем ошибку
+			}
 			return err
 		}
 		logEntry := trx.Logger // инициализируем новую запись в лог
@@ -155,37 +188,34 @@ func (trx *Transceiver) reading(receivedChan chan<- SMSReceivedMessage,
 			logEntry = logEntry.WithField("id", id)
 		}
 		if status := pdu.GetHeader().Status; status != smpp.ESME_ROK {
+			// receive <- status
 			logEntry.WithError(status).Error("Message status with error")
 		}
 		switch pdu.GetHeader().Id { // смотрим на тип сообщения
 		case smpp.SUBMIT_SM_RESP: // отосланное нами сообщение
 			seq := pdu.GetHeader().Sequence // внутренний номер отправленного сообщения
 			logEntry.WithField("seq", seq).Info("Send Response")
-			responseChan <- SMSSendResponse{
+			receive <- SendResponse{
 				Addr: trx.addr, // адрес сервера
 				ID:   id,       // внешний уникальный идентификатор сообщения
 				Seq:  seq,      // внутренний номер сообщения
 			}
 		case smpp.DELIVER_SM: // входящее сообщение
-			var msg SMSReceivedMessage                          // разобранное сообщение
-			msg.Addr = trx.addr                                 // адрес сервера
+			var msg Received    // разобранное сообщение
+			msg.Addr = trx.addr // адрес сервера
+			msg.From = pdu.GetField(smpp.SOURCE_ADDR).String()
+			msg.To = pdu.GetField(smpp.DESTINATION_ADDR).String()
+			logEntry = logEntry.WithFields(logrus.Fields{
+				"from": msg.From,
+				"to":   msg.To,
+			})
 			txt := pdu.GetField(smpp.SHORT_MESSAGE).ByteArray() // получаем сырой текст сообщения
 			if classField := pdu.GetField(smpp.ESM_CLASS); classField != nil {
 				class := classField.Value().(uint8) // получаем класс сообщения
 				logEntry = logEntry.WithField("class", class)
-				if class&0x40 > 0 { // это часть "длинного" сообщения
-					msg.GroupID = txt[3] // идентификатор группы сообщений
-					msg.Total = txt[4]   // общее количество сообщений в группе
-					msg.Counter = txt[5] // номер текущего сообщения в группе
-					txt = txt[6:]        // оставшийся текст
-					logEntry = logEntry.WithFields(logrus.Fields{
-						"group": msg.GroupID,
-						"count": msg.Counter,
-						"total": msg.Total,
-					})
-				} else if class&0x4 > 0 { // подтверждение доставки
+				if class&0x4 > 0 { // подтверждение доставки
 					parts := reStatus.FindStringSubmatch(string(txt))
-					status := SMSStatus{
+					status := Status{
 						Addr:   trx.addr,
 						ID:     parts[1],
 						Sub:    0,
@@ -202,54 +232,43 @@ func (trx *Transceiver) reading(receivedChan chan<- SMSReceivedMessage,
 					status.Done, _ = time.Parse(statusTimeFormat, parts[5])
 					status.Err, _ = strconv.Atoi(parts[7])
 					logEntry.WithField("id", status.ID).Infoln("Status:", status.Stat)
-					statusChan <- status
+					receive <- status
 					goto sendResponse
+				} else if class&0x40 > 0 { // это часть "длинного" сообщения
+					msgs, ok := incomming[txt[3]] // получаем ссылку на кеш
+					if !ok {
+						msgs = make([][]byte, txt[4])
+						incomming[txt[3]] = msgs // сохраняем в кеше
+					}
+					msgs[txt[5]-1] = txt[6:]
+					logEntry = logEntry.WithFields(logrus.Fields{
+						"group": txt[3],
+						"count": txt[4],
+						"total": txt[5],
+					})
+					if txt[5] != txt[4] { // получили пока не полное сообщение
+						logEntry.Info("Received part")
+						goto sendResponse
+					}
+					delete(incomming, txt[3])        // удаляем из кеша
+					txt = bytes.Join(msgs, []byte{}) // объединяем все в единый текст
 				}
 			}
-			msg.From = pdu.GetField(smpp.SOURCE_ADDR).String()
-			msg.To = pdu.GetField(smpp.DESTINATION_ADDR).String()
-			logEntry = logEntry.WithFields(logrus.Fields{
-				"from": msg.From,
-				"to":   msg.To,
-			})
-			msg.Encode = pdu.GetField(smpp.DATA_CODING).Value().(uint8)
-			msg.Text = string(txt)
-			switch msg.Encode {
-			case 8: // UCS2
-				es, _, err := transform.Bytes(unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM).NewDecoder(), txt)
-				if err == nil {
-					msg.Text = string(es)
-				}
-			case 3: // latin1 (windows1252)
-				es, _, err := transform.Bytes(charmap.Windows1252.NewDecoder(), txt)
-				if err == nil {
-					msg.Text = string(es)
-				}
-			}
-			logEntry.Info("Received")
-			receivedChan <- msg
+			msg.Text = Decode(pdu.GetField(smpp.DATA_CODING).Value().(uint8), txt)
+			logEntry.Debugln("Received SMS", msg.Text)
+			logEntry.Info("Received full")
+			receive <- msg
 		sendResponse:
 			// подтверждаем получение сообщения
 			err := trx.DeliverSmResp(pdu.GetHeader().Sequence, smpp.ESME_ROK)
-			if err != nil {
+			if err != nil && !trx.isClosed {
 				trx.Logger.WithError(err).Error("DeliverSM Response Error")
+				// receive <- err
 			}
 		case smpp.ENQUIRE_LINK_RESP, smpp.ENQUIRE_LINK: // подтверждение соединения
 			continue // игнорируем
 		default: // не обработанный тип сообщения
 			logEntry.WithField("type", pdu.GetHeader().Id).Warning("Unknown type")
 		}
-		// Print all fields
-		// pretty.Println(pdu)
-		// for _, v := range pdu.MandatoryFieldsList() {
-		// 	f := pdu.GetField(v)
-		// 	fmt.Println("\t", v, ":", f)
-		// }
-		// for n, v := range pdu.TLVFields() {
-		// 	es, _, err := transform.String(unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM).NewDecoder(), v.String())
-		// 	if err == nil {
-		// 		fmt.Printf("\t%x %s\n", n, es)
-		// 	}
-		// }
 	}
 }

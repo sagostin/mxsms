@@ -5,8 +5,9 @@ mx:
       port: 7778
       secure: true
       skipVerify: true
-      timeout: 5s
-      reconnectDelay: 2s
+      timeout: 20s
+      reconnectDelay: 30s
+      maxError: 5
     login:
       user: d3
       password: "9185"
@@ -15,11 +16,26 @@ mx:
       from:
       - "14086751455"
       - "14086751475"
-smpp:
-  address:
-  - 67.231.1.30:2775
-  - 67.231.4.201:2775
-  systemId: Zultys
-  password: unmQF932
-  enquireDuration: 1m0s
-  maxParts: 3
+smsgate:
+  smpp:
+    address:
+    - 67.231.1.30:2775
+    - 67.231.4.201:2775
+    systemId: Zultys
+    password: unmQF932
+    enquireDuration: 30s
+    reconnectDelay: 30s
+    maxError: 5
+    maxParts: 8
+  messageTemplates:
+    noPhone: No phone in the beginning of the message
+    incorrect: 'Invalid phone number: %q'
+    accepted: SMS sended to %q
+    delivered: SMS delivered to %q
+    error: 'SMS send error: %s'
+    incoming: |-
+      SMS from %q
+      %s
+  defaultDelivery:
+    service: xyzrd
+    jid: "43884852083135871"

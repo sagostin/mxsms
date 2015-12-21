@@ -2,19 +2,17 @@ package main
 
 import (
 	"flag"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/Sirupsen/logrus"
 )
 
 var (
 	appName        = "MXSMS"                 // название приложения
-	version        = "0.6.5"                 // версия
-	date           = "2015-12-19"            // дата сборки
+	version        = "0.6.6"                 // версия
+	date           = "2015-12-21"            // дата сборки
 	build          = ""                      // номер сборки в git-репозитории
 	configFileName = "config.yaml"           // имя конфигурационного файла
 	config         *Config                   // загруженная и разобранная конфигурация
@@ -24,6 +22,7 @@ var (
 const MaxErrors = 10 // максимально допустимое количество ошибок подключения
 
 func main() {
+	logrus.SetLevel(logrus.DebugLevel) // уровень отладки
 	flag.StringVar(&configFileName, "config", configFileName, "configuration `fileName`")
 	flag.Parse() // разбираем параметры запуска приложения
 
@@ -46,50 +45,14 @@ func main() {
 		if err != nil {
 			logEntry.WithError(err).Fatal("Error loading config")
 		}
-		logEntry.WithField("mx-servers", len(config.MX)).Info("Config loaded")
+		logEntry.WithField("mx", len(config.MX)).Info("Config loaded")
 
-		// устанавливаем соединение с SMPP-серверами
-		config.SMPP.Connect()
-		logEntry.WithField("smpp-servers", config.SMPP.Connected()).Info("SMPP Connection")
-
-		// запускаем асинхронно соединение с MX и обеспечиваем переподключение в случае ошибок
-		for _, mx := range config.MX {
-			go func(mx *MX) {
-				maxErrors := MaxErrors // устанавливаем максимальное количество допустимых ошибок
-				if mx.Addr.MaxError > 0 {
-					maxErrors = mx.Addr.MaxError
-				}
-				var lastErrorTime time.Time      // время, когда произошла последняя временная ошибка
-				for i := 0; i < maxErrors; i++ { // перезапускаем сервис авторматически в случае ошибок соединения
-					err := mx.Connect()        // устанавливаем соединение с сервером
-					switch err := err.(type) { // проверяем тип ошибки
-					// case *csta.ErrorCode, *csta.LoginResponce, syscall.Errno:
-					case *net.OpError:
-						if !(err.Temporary() || err.Timeout()) {
-							break // это не временная ошибка
-						}
-						if time.Since(lastErrorTime) > time.Minute*30 {
-							i = 0 // сбрасываем счетчик ошибок, если они были давно
-						}
-						time.Sleep(mx.Addr.ReconnectDelay) // задержка перед следующей попыткой
-						lastErrorTime = time.Now()         // запоминаем время ошибки
-						continue                           // не критические ошибки - переустанавливаем соединение
-					case nil:
-						return // плановая остановка сервиса
-					}
-					break
-				}
-				mx.Logger.Warning("MX connection stoped")
-				return // остановка сервиса
-			}(mx) // изолируем сервис в качестве парамтера, иначе будет запущен только последний
-		}
-
+		config.MXConnect()       // запускаем асинхронно соединение с MX
+		config.SMSGate.Connect() // устанавливаем соединение с SMPP серверами
 		// инициализируем поддержку системных сигналов и ждем, когда он случится...
 		signal := monitorSignals(os.Interrupt, os.Kill, syscall.SIGUSR1)
-		config.SMPP.Close()            // закрываем SMPP-соединения
-		for _, mx := range config.MX { // останавливаем все запущенные соединения с MX
-			mx.Close()
-		}
+		config.SMSGate.Close() // останавливаем соединение с SMPP
+		config.MXClose()       // останавливаем соединение с MX серверами
 		// проверяем, что сигнал не является сигналом перечитать конфиг
 		if signal != syscall.SIGUSR1 {
 			log.Info("The end")
