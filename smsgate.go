@@ -102,7 +102,7 @@ func (s *SMSGate) Receive(msg sms.Received) {
 		jid, incoming, msg.From, msg.Text))
 	// проверяем на спам
 	for _, from := range mx.From {
-		if msg.From == from {
+		if msg.To == from {
 			return // это не спам - прислано нам
 		}
 	}
