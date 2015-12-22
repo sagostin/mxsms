@@ -100,13 +100,18 @@ func (s *SMSGate) Receive(msg sms.Received) {
 	}
 	mx.client.Send(mx.handler.getMessage(
 		jid, incoming, msg.From, msg.Text))
+	mx.Logger.WithFields(logrus.Fields{
+		"jid":  jid,
+		"from": msg.From,
+		"to":   msg.To,
+	}).Info("SMS incoming")
 	// проверяем на спам
 	for _, from := range mx.From {
 		if msg.To == from {
 			return // это не спам - прислано нам
 		}
 	}
-	llog.WithFields(logrus.Fields{
+	mx.Logger.WithFields(logrus.Fields{
 		"from": msg.From,
 		"to":   msg.To,
 	}).Warnf("SPAM detected: %q", msg.Text)
