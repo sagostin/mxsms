@@ -96,7 +96,7 @@ func (trx *Transceiver) Send(sms *SendMessage) error {
 	logEntry = logEntry.WithField("code", code)
 	// проверяем, что сообщение умещается в одно
 	if len(text) <= maxOneMessageLength {
-		logEntry.Info("SMS send")
+		logEntry.WithField("length", len(text)).Info("SMS send")
 		seq, err := trx.Transceiver.SubmitSm(sms.From, sms.To, text, params) // отправляем как есть
 		if err == nil {
 			sms.Seq = []uint32{seq}
@@ -127,8 +127,9 @@ func (trx *Transceiver) Send(sms *SendMessage) error {
 		msg := string(udh) + text[start:end]
 		// fmt.Println(">", msg, "[", len(msg), "]")
 		logEntry.WithFields(logrus.Fields{
-			"count": i + 1,
-			"total": count,
+			"count":  i + 1,
+			"total":  count,
+			"length": len(msg),
 		}).Info("SMS send")
 		seq, err := trx.Transceiver.SubmitSm(sms.From, sms.To, msg, params) // отправляем
 		if err != nil {
@@ -196,13 +197,14 @@ func (trx *Transceiver) reading(receive chan<- interface{}) (err error) {
 			msg.Addr = trx.addr // адрес сервера
 			msg.From = pdu.GetField(smpp.SOURCE_ADDR).String()
 			msg.To = pdu.GetField(smpp.DESTINATION_ADDR).String()
-			logEntry = logEntry.WithFields(logrus.Fields{
-				"from": msg.From,
-				"to":   msg.To,
-			})
-			datacode := pdu.GetField(smpp.DATA_CODING).Value().(uint8)
-			logEntry = logEntry.WithField("code", datacode)
 			txt := pdu.GetField(smpp.SHORT_MESSAGE).ByteArray() // получаем сырой текст сообщения
+			datacode := pdu.GetField(smpp.DATA_CODING).Value().(uint8)
+			logEntry = logEntry.WithFields(logrus.Fields{
+				"from":   msg.From,
+				"to":     msg.To,
+				"length": len(txt),
+				"code":   datacode,
+			})
 			if classField := pdu.GetField(smpp.ESM_CLASS); classField != nil {
 				class := classField.Value().(uint8) // получаем класс сообщения
 				logEntry = logEntry.WithField("class", class)
@@ -236,8 +238,8 @@ func (trx *Transceiver) reading(receive chan<- interface{}) (err error) {
 					msgs[txt[5]-1] = txt[6:]
 					logEntry = logEntry.WithFields(logrus.Fields{
 						"group": txt[3],
-						"count": txt[4],
-						"total": txt[5],
+						"total": txt[4],
+						"count": txt[5],
 					})
 					if txt[5] != txt[4] { // получили пока не полное сообщение
 						logEntry.Info("SMS received (part)")
@@ -248,7 +250,7 @@ func (trx *Transceiver) reading(receive chan<- interface{}) (err error) {
 				}
 			}
 			msg.Text = Decode(datacode, txt)
-			logEntry.Info("Received full")
+			logEntry.Info("SMS received (full)")
 			logEntry.Debugf("SMS received text: %q", msg.Text)
 			receive <- msg
 		sendResponse:

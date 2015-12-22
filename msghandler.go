@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"regexp"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/mdigger/mxsms2/csta"
 )
 
@@ -53,7 +54,11 @@ func (mh *MessageHandle) Handle(eventData interface{}) (err error) {
 	if err = mh.client.Send(messageAck{data.From, data.MsgID, data.ReqID}); err != nil {
 		return
 	}
-	logEntry := mh.MX.Logger.WithField("id", data.MsgID)
+	logEntry := mh.MX.Logger.WithFields(logrus.Fields{
+		"id":   data.MsgID,
+		"jid":  data.From,
+		"name": data.Name,
+	})
 	// разбираем сообщение и проверяем, что оно начинается на телефонный номер
 	submatch := mh.phoneRE.FindStringSubmatch(data.Body)
 	if submatch == nil { // телефонный номер не найден
