@@ -23,16 +23,18 @@ var (
 const MaxErrors = 10 // максимально допустимое количество ошибок подключения
 
 func main() {
-	logrus.SetLevel(logrus.DebugLevel) // уровень отладки
+	var debugLevel = uint(logrus.InfoLevel)
+	flag.StringVar(&configFileName, "config", configFileName, "configuration `fileName`")
+	flag.UintVar(&debugLevel, "level", debugLevel, "log `level` [0-5]")
+	flag.Parse() // разбираем параметры запуска приложения
+
+	logrus.SetLevel(logrus.Level(debugLevel)) // уровень отладки
 	// logrus.SetFormatter(new(logrus.JSONFormatter))
 	logrus.SetFormatter(new(prefixed.TextFormatter))
 	// hook, err := logrus_syslog.NewSyslogHook("", "", syslog.LOG_INFO, "")
 	// if err == nil {
 	// 	logrus.AddHook(hook)
 	// }
-
-	flag.StringVar(&configFileName, "config", configFileName, "configuration `fileName`")
-	flag.Parse() // разбираем параметры запуска приложения
 
 	// выводим в лог информацию о приложении и версии
 	logEntry := llog.WithField("version", version)

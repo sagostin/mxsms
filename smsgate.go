@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/mdigger/mxsms2/sms"
 )
 
@@ -99,6 +100,16 @@ func (s *SMSGate) Receive(msg sms.Received) {
 	}
 	mx.client.Send(mx.handler.getMessage(
 		jid, incoming, msg.From, msg.Text))
+	// проверяем на спам
+	for _, from := range mx.From {
+		if msg.From == from {
+			return // это не спам - прислано нам
+		}
+	}
+	llog.WithFields(logrus.Fields{
+		"from": msg.From,
+		"to":   msg.To,
+	}).Warnf("SPAM detected: %q", msg.Text)
 	return
 }
 

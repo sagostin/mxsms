@@ -60,16 +60,16 @@ func (trx *Transceiver) Send(sms *SendMessage) error {
 		"from": sms.From,
 		"to":   sms.To,
 	})
-	logEntry.Debugln("Send SMS:", sms.Text)
+	logEntry.Debugf("SMS send text: %q", sms.Text)
 	text := sms.Text
 	// определяем кодировку сообщения
 	var code int             // номер кодировки
 	for _, r := range text { // перебираем текст по символьно
+		// if r > '\u007F' { // используются не ASCII символы
+		// 	code = 3
+		// }
 		// пока оставим только юникодную кодировку для всех случаев расширенных символов
 		if r > '\u007F' { // используются не ASCII символы
-			code = 3
-		}
-		if r > '\u00FF' { // используются не ASCII символы
 			code = 8
 			break
 		}
@@ -96,7 +96,7 @@ func (trx *Transceiver) Send(sms *SendMessage) error {
 	logEntry = logEntry.WithField("code", code)
 	// проверяем, что сообщение умещается в одно
 	if len(text) <= maxOneMessageLength {
-		logEntry.Info("Send message")
+		logEntry.Info("SMS send")
 		seq, err := trx.Transceiver.SubmitSm(sms.From, sms.To, text, params) // отправляем как есть
 		if err == nil {
 			sms.Seq = []uint32{seq}
@@ -129,7 +129,7 @@ func (trx *Transceiver) Send(sms *SendMessage) error {
 		logEntry.WithFields(logrus.Fields{
 			"count": i + 1,
 			"total": count,
-		}).Info("Send message")
+		}).Info("SMS send")
 		seq, err := trx.Transceiver.SubmitSm(sms.From, sms.To, msg, params) // отправляем
 		if err != nil {
 			return err // в случае ошибки возвращаем информацию о ней и прерываемся
@@ -180,12 +180,12 @@ func (trx *Transceiver) reading(receive chan<- interface{}) (err error) {
 		}
 		if status := pdu.GetHeader().Status; status != smpp.ESME_ROK {
 			// receive <- status
-			logEntry.WithError(status).Error("Message status with error")
+			logEntry.WithError(status).Error("SMS status with error")
 		}
 		switch pdu.GetHeader().Id { // смотрим на тип сообщения
 		case smpp.SUBMIT_SM_RESP: // отосланное нами сообщение
 			seq := pdu.GetHeader().Sequence // внутренний номер отправленного сообщения
-			logEntry.WithField("seq", seq).Info("Send Response")
+			logEntry.WithField("seq", seq).Info("SMS send response")
 			receive <- SendResponse{
 				Addr: trx.addr, // адрес сервера
 				ID:   id,       // внешний уникальный идентификатор сообщения
@@ -200,6 +200,8 @@ func (trx *Transceiver) reading(receive chan<- interface{}) (err error) {
 				"from": msg.From,
 				"to":   msg.To,
 			})
+			datacode := pdu.GetField(smpp.DATA_CODING).Value().(uint8)
+			logEntry = logEntry.WithField("code", datacode)
 			txt := pdu.GetField(smpp.SHORT_MESSAGE).ByteArray() // получаем сырой текст сообщения
 			if classField := pdu.GetField(smpp.ESM_CLASS); classField != nil {
 				class := classField.Value().(uint8) // получаем класс сообщения
@@ -222,7 +224,7 @@ func (trx *Transceiver) reading(receive chan<- interface{}) (err error) {
 					status.Submit, _ = time.Parse(statusTimeFormat, parts[4])
 					status.Done, _ = time.Parse(statusTimeFormat, parts[5])
 					status.Err, _ = strconv.Atoi(parts[7])
-					logEntry.WithField("id", status.ID).Infoln("Status:", status.Stat)
+					logEntry.WithField("id", status.ID).Infof("SMS status: %q", status.Stat)
 					receive <- status
 					goto sendResponse
 				} else if class&0x40 > 0 { // это часть "длинного" сообщения
@@ -238,28 +240,28 @@ func (trx *Transceiver) reading(receive chan<- interface{}) (err error) {
 						"total": txt[5],
 					})
 					if txt[5] != txt[4] { // получили пока не полное сообщение
-						logEntry.Info("Received part")
+						logEntry.Info("SMS received (part)")
 						goto sendResponse
 					}
 					delete(incomming, txt[3])        // удаляем из кеша
 					txt = bytes.Join(msgs, []byte{}) // объединяем все в единый текст
 				}
 			}
-			msg.Text = Decode(pdu.GetField(smpp.DATA_CODING).Value().(uint8), txt)
-			logEntry.Debugln("Received SMS", msg.Text)
+			msg.Text = Decode(datacode, txt)
 			logEntry.Info("Received full")
+			logEntry.Debugf("SMS received text: %q", msg.Text)
 			receive <- msg
 		sendResponse:
 			// подтверждаем получение сообщения
 			err := trx.DeliverSmResp(pdu.GetHeader().Sequence, smpp.ESME_ROK)
 			if err != nil && !trx.isClosed {
-				trx.Logger.WithError(err).Error("DeliverSM Response Error")
+				trx.Logger.WithError(err).Error("SMS DeliverSM Response Error")
 				// receive <- err
 			}
 		case smpp.ENQUIRE_LINK_RESP, smpp.ENQUIRE_LINK: // подтверждение соединения
 			continue // игнорируем
 		default: // не обработанный тип сообщения
-			logEntry.WithField("type", pdu.GetHeader().Id).Warning("Unknown type")
+			logEntry.WithField("type", pdu.GetHeader().Id).Warning("SMS unsupported command type")
 		}
 	}
 }

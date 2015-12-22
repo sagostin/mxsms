@@ -116,7 +116,7 @@ func (c *Client) Send(cmd interface{}) (err error) {
 	c.Logger.WithFields(logrus.Fields{
 		"id":       counter,
 		"commands": cmd,
-	}).Debug("Send")
+	}).Debug("MX command send")
 	return nil
 }
 
@@ -153,7 +153,7 @@ func (c *Client) Reading() (err error) {
 		// идентификатор команды от сервера
 		id, err := strconv.Atoi(string(header[4:]))
 		if err != nil {
-			c.Logger.WithError(err).Debug("Ignore message with bad ID")
+			c.Logger.WithError(err).Debug("MX ignore message with bad ID")
 			continue // пропускаем команду с непонятным номером
 		}
 		// инициализируем XML-декодер, получаем имя события и данные
@@ -163,7 +163,7 @@ func (c *Client) Reading() (err error) {
 		token, err := xmlDecoder.Token()   // читаем название XML-элемента
 		if err != nil {
 			if err != io.EOF { // выводим в лог
-				c.Logger.WithError(err).Debug("Ignore error token")
+				c.Logger.WithError(err).Debug("MX ignore error token")
 			}
 			continue // игнорируем сообщения с неверным XML - читаем следующее сообщение
 		}
@@ -176,7 +176,7 @@ func (c *Client) Reading() (err error) {
 		c.Logger.WithFields(logrus.Fields{
 			"id":   id,
 			"data": string(data[offset:]),
-		}).Debug("Receive")
+		}).Debug("MX event received")
 		// обработка внутренних событий
 		if eventData := defaultClientEvents.GetDataPointer(eventName); eventData != nil {
 			// разбираем сами данные, вернувшиеся в описании события
@@ -203,7 +203,7 @@ func (c *Client) Reading() (err error) {
 			// разбираем сами данные, вернувшиеся в описании события
 			if err := xmlDecoder.DecodeElement(eventData, &startToken); err != nil {
 				c.Logger.WithError(err).WithField("event", eventName).
-					Debug("Ignore decode XML error")
+					Debug("MX ignore decode XML error")
 				continue // игнорируем элементы, которые не смогли разобрать
 			}
 			// передаем разобранное событие для обработки

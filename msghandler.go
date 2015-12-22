@@ -57,7 +57,7 @@ func (mh *MessageHandle) Handle(eventData interface{}) (err error) {
 	// разбираем сообщение и проверяем, что оно начинается на телефонный номер
 	submatch := mh.phoneRE.FindStringSubmatch(data.Body)
 	if submatch == nil { // телефонный номер не найден
-		logEntry.Info("Ignore: no phone")
+		logEntry.Info("SMS send ignore: no phone")
 		return mh.client.Send(mh.getMessage(data.From, mh.Responses.NoPhone))
 	}
 	phone := submatch[1] // телефонный номер найден в сообщении
@@ -69,17 +69,17 @@ func (mh *MessageHandle) Handle(eventData interface{}) (err error) {
 	case l == 11 && phone[1] != '0': // полный номер телефона
 		phone = fmt.Sprintf("%s", phone)
 	default: // непонятная длинна телефонного номера или неверный номер
-		logEntry.WithField("phone", phone).Info("Ignore bad phone")
+		logEntry.WithField("phone", phone).Info("SMS send ignore bad phone")
 		return mh.client.Send(mh.getMessage(data.From, mh.Responses.Incorrect, phone))
 	}
 	logEntry = logEntry.WithField("phone", phone)
 	// теперь займемся текстом сообщения: отправляем SMS-сообщение
 	err = mh.SMSGate.Send(mh.name, data.From, data.MsgID, phone, submatch[2])
 	if err != nil { // сообщение не отправлено
-		logEntry.WithError(err).Info("Send SMS to phone error")
+		logEntry.WithError(err).Info("SMS send error")
 		return mh.client.Send(mh.getMessage(data.From, mh.Responses.Error, err.Error()))
 	}
-	logEntry.Info("Send SMS to phone") // сообщение успешно отправлено
+	logEntry.Info("SMS send to phone") // сообщение успешно отправлено
 	if err = mh.client.Send(mh.getMessage(data.From, mh.Responses.Accepted, phone)); err != nil {
 		return
 	}
