@@ -75,7 +75,7 @@ func (trx *Transceiver) Send(sms *SendMessage) error {
 		}
 	}
 	// переводим текст в нужную кодировку
-	text = Encode(uint8(code), []byte(text))
+	text = string(Encode(uint8(code), text))
 	// формируем параметры для отправки сообщения
 	params := smpp.Params{
 		smpp.DEST_ADDR_TON:       1,

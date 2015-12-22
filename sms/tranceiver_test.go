@@ -52,7 +52,7 @@ func TestSMPPTranceiver(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer trx.Close()
-	receive := make(chan Received, 10)      // канал для получения SMS
+	receive := make(chan interface{}, 10)   // канал для получения SMS
 	status := make(chan Status, 10)         // канал для получения статусов доставки
 	response := make(chan SendResponse, 10) // канал для получения подтверждений отправки
 	go func() {
@@ -67,7 +67,7 @@ func TestSMPPTranceiver(t *testing.T) {
 			}
 		}
 	}()
-	go trx.reading(receive, status, response) // запускаем получение данных с сервера
+	go trx.reading(receive) // запускаем получение данных с сервера
 	for _, text := range texts {
 		time.Sleep(time.Second * 10)
 		sms := &SendMessage{
