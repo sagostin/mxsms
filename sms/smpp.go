@@ -13,19 +13,19 @@ const MaxErrors = 10 // максимально допустимое количе
 
 // SMPP описывает соединение с сервером SMPP.
 type SMPP struct {
-	Address         []string      // адрес и порт SMPP сервера
-	SystemID        string        `yaml:"systemId"` // логин для авторизации
-	Password        string        // пароль для авторизации
-	EnquireDuration time.Duration `yaml:"enquireDuration,omitempty"` // интервал посылки сообщений поддержки соединения
-	ReconnectDelay  time.Duration `yaml:"reconnectDelay,omitempty"`  // время задержки между повторным подключением к серверу
-	MaxError        int           `yaml:"maxError,omitempty"`        // максимально допустимое количество ошибок
-	MaxParts        uint8         `yaml:"maxParts,omitempty"`        // максимальное количество разбиений SMS
-	Logger          *logrus.Entry `yaml:"-"`                         // вывод логов
+	Address         []string         // адрес и порт SMPP сервера
+	SystemID        string           `yaml:"systemId"` // логин для авторизации
+	Password        string           // пароль для авторизации
+	EnquireDuration time.Duration    `yaml:"enquireDuration,omitempty"` // интервал посылки сообщений поддержки соединения
+	ReconnectDelay  time.Duration    `yaml:"reconnectDelay,omitempty"`  // время задержки между повторным подключением к серверу
+	MaxError        int              `yaml:"maxError,omitempty"`        // максимально допустимое количество ошибок
+	MaxParts        uint8            `yaml:"maxParts,omitempty"`        // максимальное количество разбиений SMS
+	Logger          *logrus.Entry    `yaml:"-"`                         // вывод логов
+	Receive         chan interface{} `yaml:"-"`                         // обратный канал от трансивера
 
-	trxs    map[string]*Transceiver // список подключенных SMPP-трансиверов
-	send    chan *SendMessage       // канал для отправки SMS
-	Receive chan interface{}        // обратный канал от трансивера
-	mu      sync.RWMutex
+	send chan *SendMessage       // канал для отправки SMS
+	trxs map[string]*Transceiver // список подключенных SMPP-трансиверов
+	mu   sync.RWMutex
 }
 
 // Connect устанавливает соединение со всеми адресами SMPP, указанными в свойствах.

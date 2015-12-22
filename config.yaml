@@ -1,5 +1,5 @@
 mx:
-  zultys-mx:
+  xyzrd-test:
     server:
       host: 10.30.2.221
       port: 7778
@@ -16,6 +16,7 @@ mx:
       from:
       - "14086751455"
       - "14086751475"
+    defaultJID: "44086340573989457"
 smsgate:
   smpp:
     address:
@@ -36,6 +37,3 @@ smsgate:
     incoming: |-
       SMS from %q
       %s
-  defaultDelivery:
-    service: zultys-mx
-    jid: "44086340573989457"

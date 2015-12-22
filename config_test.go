@@ -15,9 +15,9 @@ import (
 func TestConfigGenerate(t *testing.T) {
 	var config = &Config{
 		MX: map[string]*MX{
-			"xyzrd": {
+			"xyzrd-test": {
 				Addr: csta.Addr{
-					Host:           "voip.xyzrd.com",
+					Host:           "10.30.2.221",
 					Port:           7778,
 					Secure:         true,
 					SkipVerify:     true,
@@ -26,14 +26,15 @@ func TestConfigGenerate(t *testing.T) {
 					MaxError:       5,
 				},
 				Login: csta.Login{
-					User:     "d3",
+					User:     "smsgate",
 					Password: "9185",
 				},
 				PhoneInfo: PhoneInfo{
 					Short:  0,
-					Prefix: "7",
+					Prefix: "1",
 					From:   []string{"14086751455", "14086751475"},
 				},
+				DefaultJID: "44086340573989457",
 			},
 		},
 		SMSGate: &SMSGate{
@@ -53,10 +54,6 @@ func TestConfigGenerate(t *testing.T) {
 				Delivered: "SMS delivered to %q",
 				Error:     "SMS send error: %s",
 				Incoming:  "SMS from %q\n%s",
-			},
-			Default: DefaultDelivery{
-				Service: "xyzrd",
-				JID:     "43884852083135871",
 			},
 		},
 	}

@@ -19,8 +19,9 @@ type MX struct {
 	csta.Addr  `yaml:"server"` // адрес сервера
 	csta.Login                 // информация для авторизации
 	PhoneInfo  `yaml:"phones"` // информация для разбора телефонных номеров
-	Disabled   bool            `yaml:",omitempty"` // флаг игнорируемого сервиса
-	Logger     *logrus.Entry   `yaml:"-"`          // лог для вывода информации о сервисе
+	DefaultJID string          `yaml:"defaultJID,omitempty"` // кому доставлять неизвестные
+	Disabled   bool            `yaml:",omitempty"`           // флаг игнорируемого сервиса
+	Logger     *logrus.Entry   `yaml:"-"`                    // лог для вывода информации о сервисе
 	handler    *MessageHandle  // обработчик сообщений чата
 	client     *csta.Client    // клиент соединения с MX-сервером
 }

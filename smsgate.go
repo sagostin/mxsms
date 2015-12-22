@@ -21,19 +21,12 @@ type SMSTemplates struct {
 	Incoming  string `yaml:",omitempty"`        // входящее
 }
 
-// DefaultDelivery описывает информацию о доставке непонятных сообщений
-type DefaultDelivery struct {
-	Service string // название сервиса
-	JID     string // уникальный идентификатор пользователя
-}
-
 // SMSGate описывает конфигурацию для отправки SMS.
 type SMSGate struct {
-	SMPP      *sms.SMPP       // SMPP-соединение
-	Responses SMSTemplates    `yaml:"messageTemplates"`          // список шаблонов ответов
-	Default   DefaultDelivery `yaml:"defaultDelivery,omitempty"` // кому доставлять неизвестные
-	counter   uint32          // счетчик отправленных сообщений
-	history   History         // история отправленных сообщений
+	SMPP      *sms.SMPP    // SMPP-соединение
+	Responses SMSTemplates `yaml:"messageTemplates"` // список шаблонов ответов
+	counter   uint32       // счетчик отправленных сообщений
+	history   History      // история отправленных сообщений
 }
 
 func (s *SMSGate) Connect() {
@@ -83,13 +76,27 @@ func (s *SMSGate) Receive(msg sms.Received) {
 		msg.To = msg.To[1:]
 	}
 	mxName, jid := s.history.Get(msg.To, msg.From)
-	if mxName == "" || jid == "" {
-		mxName = s.Default.Service
-		jid = s.Default.JID
-	}
-	if mxName == "" || jid == "" {
+	if mxName == "" || jid == "" { // в истории не найдено подходящего пользователя, кому это адресовано
+		for name, mx := range config.MX { // перебираем все настройки MX-серверов
+			for _, from := range mx.From { // перебираем все их телефоны
+				if msg.To == from { // нашли подходящий номер
+					mxName = name
+					jid = mx.DefaultJID
+					if jid == "" { // не сконфигурирована доставка нераспознанных сообщений
+						return
+					}
+					goto next // нашли подходящее
+				}
+			}
+		}
+		// номер, на который пришло сообщение, не указан ни для одного сервера
+		llog.WithFields(logrus.Fields{
+			"from": msg.From,
+			"to":   msg.To,
+		}).Warnf("SPAM detected: %q", msg.Text)
 		return
 	}
+next:
 	mx := config.MX[mxName]
 	if mx == nil {
 		return
@@ -111,10 +118,6 @@ func (s *SMSGate) Receive(msg sms.Received) {
 			return // это не спам - прислано нам
 		}
 	}
-	mx.Logger.WithFields(logrus.Fields{
-		"from": msg.From,
-		"to":   msg.To,
-	}).Warnf("SPAM detected: %q", msg.Text)
 	return
 }
 
