@@ -37,3 +37,4 @@ smsgate:
     incoming: |-
       SMS from %q
       %s
+  mySqlLog: root@/mxsms?charset=utf8

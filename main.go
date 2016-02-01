@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/mdigger/mxsms2/sqlog"
 	"github.com/x-cray/logrus-prefixed-formatter"
 )
 
@@ -18,6 +19,7 @@ var (
 	configFileName = "config.yaml"           // имя конфигурационного файла
 	config         *Config                   // загруженная и разобранная конфигурация
 	llog           = logrus.StandardLogger() // инициализируем сбор логов
+	sglogDB        *sqlog.DB                 // лог СМС
 )
 
 const MaxErrors = 10 // максимально допустимое количество ошибок подключения
@@ -57,12 +59,18 @@ func main() {
 		}
 		logEntry.WithField("mx", len(config.MX)).Info("Config loaded")
 
+		sglogDB, err = sqlog.Connect(config.SMSGate.MYSQL)
+		if err != nil {
+			logEntry.WithError(err).Fatal("Error connecting to MySQL")
+		}
+
 		config.MXConnect()       // запускаем асинхронно соединение с MX
 		config.SMSGate.Connect() // устанавливаем соединение с SMPP серверами
 		// инициализируем поддержку системных сигналов и ждем, когда он случится...
 		signal := monitorSignals(os.Interrupt, os.Kill, syscall.SIGUSR1)
 		config.SMSGate.Close() // останавливаем соединение с SMPP
 		config.MXClose()       // останавливаем соединение с MX серверами
+		sglogDB.Close()        // закрываем соединение с логом
 		// проверяем, что сигнал не является сигналом перечитать конфиг
 		if signal != syscall.SIGUSR1 {
 			llog.Info("The end")
