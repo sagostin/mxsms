@@ -38,3 +38,4 @@ smsgate:
       SMS from %q
       %s
   mySqlLog: root@/mxsms?charset=utf8
+  zabbixHost: BOS-MXV-SMS-GW1

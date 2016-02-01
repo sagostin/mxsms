@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/mdigger/mxsms2/zabbix"
 	"github.com/mdigger/smpp"
 )
 
@@ -21,7 +22,8 @@ type SMPP struct {
 	MaxError        int              `yaml:"maxError,omitempty"`        // максимально допустимое количество ошибок
 	MaxParts        uint8            `yaml:"maxParts,omitempty"`        // максимальное количество разбиений SMS
 	Logger          *logrus.Entry    `yaml:"-"`                         // вывод логов
-	Receive         chan interface{} `yaml:"-"`                         // обратный канал от трансивера
+	Zabbix          *zabbix.Log      `yaml:"-"`
+	Receive         chan interface{} `yaml:"-"` // обратный канал от трансивера
 
 	send chan *SendMessage       // канал для отправки SMS
 	trxs map[string]*Transceiver // список подключенных SMPP-трансиверов
@@ -57,9 +59,16 @@ func (s *SMPP) Connect() {
 			}
 			var lastErrorTime time.Time      // время, когда произошла последняя временная ошибка
 			for i := 0; i < maxErrors; i++ { // перезапускаем сервис авторматически в случае ошибок соединения
+				var key string
+				if addr == s.Address[0] {
+					key = "east.bw.sms.link"
+				} else {
+					key = "west.bw.sms.link"
+				}
 				// устанавливаем соединение с SMPP-сервером
 				trx, err := smpp.NewTransceiver(addr, s.EnquireDuration, bindParams)
 				if err != nil {
+					s.Zabbix.Send(key, "0")
 					logEntry.WithError(err).Error("SMPP Connection error")
 					if time.Since(lastErrorTime) > time.Minute*30 {
 						i = 0 // сбрасываем счетчик ошибок, если они были давно
@@ -69,6 +78,12 @@ func (s *SMPP) Connect() {
 					continue                     // повторяем еще раз
 				}
 				logEntry.Info("SMPP Connected")
+				go func() {
+					for {
+						s.Zabbix.Send(key, "1")
+						time.Sleep(time.Minute)
+					}
+				}()
 				transceiver := &Transceiver{
 					addr:        addr,
 					Transceiver: trx,

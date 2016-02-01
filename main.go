@@ -8,6 +8,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/mdigger/mxsms2/sqlog"
+	"github.com/mdigger/mxsms2/zabbix"
 	"github.com/x-cray/logrus-prefixed-formatter"
 )
 
@@ -20,6 +21,7 @@ var (
 	config         *Config                   // загруженная и разобранная конфигурация
 	llog           = logrus.StandardLogger() // инициализируем сбор логов
 	sglogDB        *sqlog.DB                 // лог СМС
+	zabbixLog      *zabbix.Log
 )
 
 const MaxErrors = 10 // максимально допустимое количество ошибок подключения
@@ -63,6 +65,8 @@ func main() {
 		if err != nil {
 			logEntry.WithError(err).Fatal("Error connecting to MySQL")
 		}
+		zabbixLog = zabbix.New(config.SMSGate.ZabbixHost)
+		config.SMSGate.SMPP.Zabbix = zabbixLog
 
 		config.MXConnect()       // запускаем асинхронно соединение с MX
 		config.SMSGate.Connect() // устанавливаем соединение с SMPP серверами

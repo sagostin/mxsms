@@ -63,6 +63,7 @@ func (mh *MessageHandle) Handle(eventData interface{}) (err error) {
 	submatch := mh.phoneRE.FindStringSubmatch(data.Body)
 	if submatch == nil { // телефонный номер не найден
 		logEntry.Info("SMS send ignore: no phone")
+		zabbixLog.Send("gw.sms.unknown.destination", "no phone")
 		return mh.client.Send(mh.getMessage(data.From, mh.Responses.NoPhone))
 	}
 	phone := submatch[1] // телефонный номер найден в сообщении
@@ -75,6 +76,7 @@ func (mh *MessageHandle) Handle(eventData interface{}) (err error) {
 		phone = fmt.Sprintf("%s", phone)
 	default: // непонятная длинна телефонного номера или неверный номер
 		logEntry.WithField("phone", phone).Info("SMS send ignore bad phone")
+		zabbixLog.Send("gw.sms.unknown.destination", phone)
 		return mh.client.Send(mh.getMessage(data.From, mh.Responses.Incorrect, phone))
 	}
 	logEntry = logEntry.WithField("phone", phone)
@@ -82,6 +84,7 @@ func (mh *MessageHandle) Handle(eventData interface{}) (err error) {
 	err = mh.SMSGate.Send(mh.name, data.From, data.MsgID, phone, submatch[2])
 	if err != nil { // сообщение не отправлено
 		logEntry.WithError(err).Info("SMS send error")
+		zabbixLog.Send("gw.sms.delivery.error", err.Error())
 		return mh.client.Send(mh.getMessage(data.From, mh.Responses.Error, err.Error()))
 	}
 	logEntry.Info("SMS send to phone") // сообщение успешно отправлено

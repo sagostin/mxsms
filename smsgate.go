@@ -23,11 +23,12 @@ type SMSTemplates struct {
 
 // SMSGate описывает конфигурацию для отправки SMS.
 type SMSGate struct {
-	SMPP      *sms.SMPP    // SMPP-соединение
-	Responses SMSTemplates `yaml:"messageTemplates"` // список шаблонов ответов
-	MYSQL     string       `yaml:"mySqlLog"`         // инициализация подключения к логу
-	counter   uint32       // счетчик отправленных сообщений
-	history   History      // история отправленных сообщений
+	SMPP       *sms.SMPP    // SMPP-соединение
+	Responses  SMSTemplates `yaml:"messageTemplates"` // список шаблонов ответов
+	MYSQL      string       `yaml:"mySqlLog"`         // инициализация подключения к логу
+	ZabbixHost string       `yaml:"zabbixHost"`
+	counter    uint32       // счетчик отправленных сообщений
+	history    History      // история отправленных сообщений
 }
 
 func (s *SMSGate) Connect() {
@@ -58,6 +59,7 @@ func (s *SMSGate) Send(mxName, jid string, msgID int64, to, msg string) (err err
 	phoneType := int64(11 - len(from))
 	smsMessage := &sms.SendMessage{From: from, To: to, Text: msg}
 	if err = s.SMPP.Send(smsMessage); err != nil { // отправляем СМС
+		zabbixLog.Send("gw.smsc.error", err.Error())
 		sglogDB.Insert(mxName, from, to, msg, false, phoneType, msgID, 0)
 		return err
 	}

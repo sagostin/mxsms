@@ -50,7 +50,8 @@ func (c *Config) MXConnect() {
 			}
 			var lastErrorTime time.Time      // время, когда произошла последняя временная ошибка
 			for i := 0; i < maxErrors; i++ { // перезапускаем сервис авторматически в случае ошибок соединения
-				err := mx.Connect()        // устанавливаем соединение с сервером
+				err := mx.Connect() // устанавливаем соединение с сервером
+				zabbixLog.Send("mx.sms.link.lost", mx.name)
 				switch err := err.(type) { // проверяем тип ошибки
 				// case *csta.ErrorCode, *csta.LoginResponce, syscall.Errno:
 				case *net.OpError:
