@@ -79,7 +79,9 @@ func (s *SMSGate) Receive(msg sms.Received) {
 	if msg.To[0] == '+' {
 		msg.To = msg.To[1:]
 	}
+	phoneType := int64(11 - len(msg.From))
 	mxName, jid := s.history.Get(msg.To, msg.From)
+	sglogDB.Insert(mxName, msg.From, msg.To, msg.Text, true, phoneType, 0, 2)
 	if mxName == "" || jid == "" { // в истории не найдено подходящего пользователя, кому это адресовано
 		for name, mx := range config.MX { // перебираем все настройки MX-серверов
 			for _, from := range mx.From { // перебираем все их телефоны
