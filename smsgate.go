@@ -9,6 +9,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/mdigger/mxsms2/sms"
+	"github.com/mdigger/mxsms2/zabbix"
 )
 
 // SMSTemplates описывает шаблоны сообщений.
@@ -23,12 +24,12 @@ type SMSTemplates struct {
 
 // SMSGate описывает конфигурацию для отправки SMS.
 type SMSGate struct {
-	SMPP       *sms.SMPP    // SMPP-соединение
-	Responses  SMSTemplates `yaml:"messageTemplates"` // список шаблонов ответов
-	MYSQL      string       `yaml:"mySqlLog"`         // инициализация подключения к логу
-	ZabbixHost string       `yaml:"zabbixHost"`
-	counter    uint32       // счетчик отправленных сообщений
-	history    History      // история отправленных сообщений
+	SMPP      *sms.SMPP    // SMPP-соединение
+	Responses SMSTemplates `yaml:"messageTemplates"` // список шаблонов ответов
+	MYSQL     string       `yaml:"mySqlLog"`         // инициализация подключения к логу
+	Zabbix    *zabbix.Log  `yaml:"zabbix"`
+	counter   uint32       // счетчик отправленных сообщений
+	history   History      // история отправленных сообщений
 }
 
 func (s *SMSGate) Connect() {

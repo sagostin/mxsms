@@ -65,8 +65,8 @@ func main() {
 		if err != nil {
 			logEntry.WithError(err).Fatal("Error connecting to MySQL")
 		}
-		zabbixLog = zabbix.New(config.SMSGate.ZabbixHost)
-		config.SMSGate.SMPP.Zabbix = zabbixLog
+		// zabbixLog = zabbix.New(config.SMSGate.ZabbixHost)
+		config.SMSGate.SMPP.Zabbix = config.SMSGate.Zabbix
 
 		config.MXConnect()       // запускаем асинхронно соединение с MX
 		config.SMSGate.Connect() // устанавливаем соединение с SMPP серверами
