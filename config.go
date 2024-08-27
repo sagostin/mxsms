@@ -9,11 +9,11 @@ import (
 )
 
 type Config struct {
-	MX      map[string]*MX // сервера MX
-	SMSGate *SMSGate       // настройки работы с SMS
+	MX      map[string]*MX // MX servers
+	SMSGate *SMSGate       // SMS handling settings
 }
 
-// ParseConfig разбирает конфигурацию и инициализирует начальные значения.
+// ParseConfig parses the configuration and initializes initial values.
 func ParseConfig(data []byte) (*Config, error) {
 	config := new(Config)
 	err := yaml.Unmarshal(data, config)
@@ -22,16 +22,16 @@ func ParseConfig(data []byte) (*Config, error) {
 	}
 	for name, mx := range config.MX {
 		if mx.Disabled {
-			delete(config.MX, name) // сразу удаляем заблокированные сервера MX
+			delete(config.MX, name) // immediately remove blocked MX servers
 			continue
 		}
-		mx.name = name                                            // сохраняем имя конфигурации сервера
-		mx.Logger = logrus.StandardLogger().WithField("mx", name) // назначаем обработчик логов
+		mx.name = name                                            // save the server configuration name
+		mx.Logger = logrus.StandardLogger().WithField("mx", name) // assign log handler
 	}
 	return config, nil
 }
 
-// LoadConfig загружает и разбирает конфигурацию из файла.
+// LoadConfig loads and parses the configuration from a file.
 func LoadConfig(filename string) (*Config, error) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -43,39 +43,39 @@ func LoadConfig(filename string) (*Config, error) {
 func (c *Config) MXConnect() {
 	for _, mx := range c.MX {
 		go func(mx *MX) {
-			maxErrors := MaxErrors // устанавливаем максимальное количество допустимых ошибок
+			maxErrors := MaxErrors // set the maximum number of allowable errors
 			if mx.Addr.MaxError > 0 {
 				maxErrors = mx.Addr.MaxError
 			}
-			var lastErrorTime time.Time      // время, когда произошла последняя временная ошибка
-			for i := 0; i < maxErrors; i++ { // перезапускаем сервис авторматически в случае ошибок соединения
-				err := mx.Connect() // устанавливаем соединение с сервером
+			var lastErrorTime time.Time      // time when the last temporary error occurred
+			for i := 0; i < maxErrors; i++ { // restart the service automatically in case of connection errors
+				err := mx.Connect() // establish connection with the server
 				zabbixLog.Send("mx.sms.link.lost", mx.name)
-				switch err := err.(type) { // проверяем тип ошибки
+				switch err := err.(type) { // check the error type
 				// case *csta.ErrorCode, *csta.LoginResponse, syscall.Errno:
 				case *net.OpError:
 					if !(err.Temporary() || err.Timeout()) {
-						break // это не временная ошибка
+						break // this is not a temporary error
 					}
 					if time.Since(lastErrorTime) > time.Minute*30 {
-						i = 0 // сбрасываем счетчик ошибок, если они были давно
+						i = 0 // reset error counter if they were long ago
 					}
-					time.Sleep(mx.Addr.ReconnectDelay) // задержка перед следующей попыткой
-					lastErrorTime = time.Now()         // запоминаем время ошибки
-					continue                           // не критические ошибки - переустанавливаем соединение
+					time.Sleep(mx.Addr.ReconnectDelay) // delay before next attempt
+					lastErrorTime = time.Now()         // remember error time
+					continue                           // non-critical errors - re-establish connection
 				case nil:
-					return // плановая остановка сервиса
+					return // planned service stop
 				}
 				break
 			}
 			mx.Logger.Warning("MX connection stopped")
-			return // остановка сервиса
-		}(mx) // изолируем сервис в качестве парамтера, иначе будет запущен только последний
+			return // service stop
+		}(mx) // isolate the service as a parameter, otherwise only the last one will be launched
 	}
 }
 
 func (c *Config) MXClose() {
-	for _, mx := range c.MX { // останавливаем все запущенные соединения с MX
+	for _, mx := range c.MX { // stop all running connections to MX
 		mx.Close()
 	}
 }
