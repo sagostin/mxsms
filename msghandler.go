@@ -5,29 +5,29 @@ import (
 	"reflect"
 	"regexp"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/mdigger/mxsms2/csta"
+	"github.com/sirupsen/logrus"
+	"mxsms/csta"
 )
 
-// MessageHandle описывает обработчик входящих сообщений.
+// MessageHandle describes the handler for incoming messages.
 type MessageHandle struct {
-	*SMSGate                // шаблоны сообщений
-	*MX                     // правила разбора телефонных номеров
-	phoneRE  *regexp.Regexp // регулярное выражение для разбора сообщения
-	client   *csta.Client   // клиент соединения с MX
+	*SMSGate                // message templates
+	*MX                     // rules for parsing phone numbers
+	phoneRE  *regexp.Regexp // regular expression for parsing the message
+	client   *csta.Client   // client for connection to MX
 }
 
-// NewMessageHandler инициализирует и возвращает новый обработчик входящих сообщений.
+// NewMessageHandler initializes and returns a new handler for incoming messages.
 func NewMessageHandler(sms *SMSGate, mx *MX) *MessageHandle {
-	min := 11 - len(mx.Prefix) // по умолчанию будет минимальный телефон без префикса
+	min := 11 - len(mx.Prefix) // by default, it will be the minimum phone number without prefix
 	if min < 7 {
-		min = 11 // если префикс слишком уж длинный, то не учитываем его
+		min = 11 // if the prefix is too long, we don't consider it
 	}
 	if mx.Short >= 3 && mx.Short <= 6 {
 		min = mx.Short
 	}
 	re := fmt.Sprintf("(?s)\\A\\+?(\\d{%d,11})\\s+(.+)", min)
-	// инициализируем обработчик сообщений
+	// initialize the message handler
 	handler := &MessageHandle{
 		SMSGate: sms,
 		MX:      mx,
@@ -36,7 +36,7 @@ func NewMessageHandler(sms *SMSGate, mx *MX) *MessageHandle {
 	return handler
 }
 
-// Register возвращает информацию для регистрации обработчика входящих сообщений.
+// Register returns information for registering the incoming message handler.
 func (mh *MessageHandle) Register(client *csta.Client) csta.EventMap {
 	mh.client = client
 	return csta.EventMap{
@@ -44,13 +44,13 @@ func (mh *MessageHandle) Register(client *csta.Client) csta.EventMap {
 	}
 }
 
-// Handle вызывается для обработки разобранных данных входящего сообщения.
+// Handle is called to process the parsed data of an incoming message.
 func (mh *MessageHandle) Handle(eventData interface{}) (err error) {
 	data, ok := eventData.(*incommingMessage)
 	if !ok {
-		return // поддерживаем только один тип данных для обработки
+		return // we only support one type of data for processing
 	}
-	// отправляем подтверждение получения сообщения
+	// send confirmation of message receipt
 	if err = mh.client.Send(messageAck{data.From, data.MsgID, data.ReqID}); err != nil {
 		return
 	}
@@ -59,51 +59,51 @@ func (mh *MessageHandle) Handle(eventData interface{}) (err error) {
 		"jid":  data.From,
 		"name": data.Name,
 	})
-	// разбираем сообщение и проверяем, что оно начинается на телефонный номер
+	// parse the message and check if it starts with a phone number
 	submatch := mh.phoneRE.FindStringSubmatch(data.Body)
-	if submatch == nil { // телефонный номер не найден
+	if submatch == nil { // phone number not found
 		logEntry.Info("SMS send ignore: no phone")
 		zabbixLog.Send("gw.sms.unknown.destination", "no phone")
 		return mh.client.Send(mh.getMessage(data.From, mh.Responses.NoPhone))
 	}
-	phone := submatch[1] // телефонный номер найден в сообщении
-	// анализируем длинну телефонного номера и приводим номер к стандарту
+	phone := submatch[1] // phone number found in the message
+	// analyze the length of the phone number and bring the number to the standard
 	switch l := len(phone); {
-	case l >= 3 && l <= 6 && l == mh.Short: // это короткий номер - оставляем как есть
-	case l >= 7 && l == 11-len(mh.Prefix): // не полный номер - без префикса
+	case l >= 3 && l <= 6 && l == mh.Short: // this is a short number - leave as is
+	case l >= 7 && l == 11-len(mh.Prefix): // not full number - without prefix
 		phone = fmt.Sprintf("%s%s", mh.Prefix, phone)
-	case l == 11 && phone[1] != '0': // полный номер телефона
+	case l == 11 && phone[1] != '0': // full phone number
 		phone = fmt.Sprintf("%s", phone)
-	default: // непонятная длинна телефонного номера или неверный номер
+	default: // unclear phone number length or invalid number
 		logEntry.WithField("phone", phone).Info("SMS send ignore bad phone")
 		zabbixLog.Send("gw.sms.unknown.destination", phone)
 		return mh.client.Send(mh.getMessage(data.From, mh.Responses.Incorrect, phone))
 	}
 	logEntry = logEntry.WithField("phone", phone)
-	// теперь займемся текстом сообщения: отправляем SMS-сообщение
+	// now let's deal with the message text: send SMS message
 	err = mh.SMSGate.Send(mh.name, data.From, data.MsgID, phone, submatch[2])
-	if err != nil { // сообщение не отправлено
+	if err != nil { // message not sent
 		logEntry.WithError(err).Info("SMS send error")
 		zabbixLog.Send("gw.sms.delivery.error", err.Error())
 		return mh.client.Send(mh.getMessage(data.From, mh.Responses.Error, err.Error()))
 	}
-	logEntry.Info("SMS send to phone") // сообщение успешно отправлено
+	logEntry.Info("SMS send to phone") // message successfully sent
 	if err = mh.client.Send(mh.getMessage(data.From, mh.Responses.Accepted, phone)); err != nil {
 		return
 	}
 	return
 }
 
-// incommingMessage описывает входящее сообщение.
+// incommingMessage describes an incoming message.
 type incommingMessage struct {
-	From  string `xml:"from,attr"`  // уникальный идентификатор пользователя отправившего сообщение
-	Name  string `xml:"name,attr"`  // имя отправителя
-	MsgID int64  `xml:"msgId,attr"` // уникальный идентификатор сообщения, который использовался при передаче, в формате десятичного числа
-	ReqID int64  `xml:"reqId,attr"` // уникальный идентификатор группы, в случае если сообщение передано группе пользователей
-	Body  string `xml:",chardata"`  // текст сообщения
+	From  string `xml:"from,attr"`  // unique identifier of the user who sent the message
+	Name  string `xml:"name,attr"`  // sender's name
+	MsgID int64  `xml:"msgId,attr"` // unique message identifier used during transmission, in decimal format
+	ReqID int64  `xml:"reqId,attr"` // unique group identifier, in case the message is sent to a group of users
+	Body  string `xml:",chardata"`  // message text
 }
 
-// messageAck описывает структуру ответа на сообщение.
+// messageAck describes the structure of a message response.
 type messageAck struct {
 	From string `xml:"from,attr"`
 	UID  int64  `xml:"msgId,attr"`

@@ -7,52 +7,52 @@ import (
 	"fmt"
 )
 
-// Предопределенные значения платформы и версии, используемые при логине.
+// Predefined platform and version values used for login.
 var (
-	DefaultPlatform = "iPhone" // название платформы, используемой для логина по умолчанию.
-	DefaultVersion  = "N/A"    // версия платформы
+	DefaultPlatform = "iPhone" // default platform name used for login
+	DefaultVersion  = "N/A"    // platform version
 )
 
-// Login описывает информацию для авторизации на MX-сервере.
+// Login describes the information for authorization on the MX server.
 type Login struct {
-	Type     string `yaml:",omitempty"` // тип учетной записи: User, Server, Group
-	User     string // имя пользователя
-	Password string // пароль
-	Clear    bool   `yaml:",omitempty"` // отсылать пароль в открытом виде
-	Platform string `yaml:",omitempty"` // название платформы
-	Version  string `yaml:",omitempty"` // версия программного обеспечения
+	Type     string `yaml:",omitempty"` // account type: User, Server, Group
+	User     string // username
+	Password string // password
+	Clear    bool   `yaml:",omitempty"` // send password in clear text
+	Platform string `yaml:",omitempty"` // platform name
+	Version  string `yaml:",omitempty"` // software version
 }
 
-// loginRequest возвращает инициализированную команду для авторизации.
+// loginRequest returns an initialized command for authorization.
 func (l *Login) loginRequest() *loginRequest {
-	loginType := l.Type // тип логина
+	loginType := l.Type // login type
 	if loginType == "" {
 		loginType = "User"
 	}
-	platform := l.Platform // платформа
+	platform := l.Platform // platform
 	if platform == "" {
 		platform = DefaultPlatform
 	}
-	version := l.Version // версия
+	version := l.Version // version
 	if version == "" {
 		version = DefaultVersion
 	}
-	password := l.Password // пароль
-	if !l.Clear {          // пароль передается в зашифрованном виде
-		var pwdHash = sha1.Sum([]byte(password))                        // хешируем пароль
-		password = base64.StdEncoding.EncodeToString(pwdHash[:]) + "\n" // переводим в base64
+	password := l.Password // password
+	if !l.Clear {          // password is transmitted in encrypted form
+		var pwdHash = sha1.Sum([]byte(password))                        // hash the password
+		password = base64.StdEncoding.EncodeToString(pwdHash[:]) + "\n" // convert to base64
 	}
-	// отсылаем команду логина на сервер
+	// send login command to the server
 	return &loginRequest{
-		Type:     loginType, // тип логина
-		Platform: platform,  // платформа
-		Version:  version,   // версия платформы
-		UserName: l.User,    // имя пользователя
-		Password: password,  // пароль
+		Type:     loginType, // login type
+		Platform: platform,  // platform
+		Version:  version,   // platform version
+		UserName: l.User,    // username
+		Password: password,  // password
 	}
 }
 
-// loginRequest описывает запрос авторизации.
+// loginRequest describes the authorization request.
 type loginRequest struct {
 	XMLName  xml.Name `xml:"loginRequest"`
 	Type     string   `xml:"type,attr,omitempty"`
@@ -62,17 +62,17 @@ type loginRequest struct {
 	Password string   `xml:"pwd"`
 }
 
-// LoginResponce описывает ответ на логин (события loginResponce и loginFailed)
-type LoginResponce struct {
-	Code       int    `xml:"Code,attr"`       // код ошибки
-	SN         string `xml:"sn,attr"`         // серийный номер
-	APIVersion int    `xml:"apiversion,attr"` // версия API
-	Ext        string `xml:"ext,attr"`        // внутренний телефонный номер пользователя
-	JID        string `xml:"userId,attr"`     // внутренний уникальный идентификатор пользователя
-	Message    string `xml:",chardata"`       // текст сообщения
+// LoginResponse describes the response to login (loginResponse and loginFailed events)
+type LoginResponse struct {
+	Code       int    `xml:"Code,attr"`       // error code
+	SN         string `xml:"sn,attr"`         // serial number
+	APIVersion int    `xml:"apiversion,attr"` // API version
+	Ext        string `xml:"ext,attr"`        // user's internal phone number
+	JID        string `xml:"userId,attr"`     // user's internal unique identifier
+	Message    string `xml:",chardata"`       // message text
 }
 
-// Error возвращает текстовое описание ошибки авторизации.
-func (l *LoginResponce) Error() string {
+// Error returns a text description of the authorization error.
+func (l *LoginResponse) Error() string {
 	return fmt.Sprintf("login error [%d]: %s", l.Code, l.Message)
 }

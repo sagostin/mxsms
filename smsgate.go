@@ -7,50 +7,50 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/mdigger/mxsms2/sms"
-	"github.com/mdigger/mxsms2/zabbix"
+	"github.com/sirupsen/logrus"
+	"mxsms/sms"
+	"mxsms/zabbix"
 )
 
-// SMSTemplates описывает шаблоны сообщений.
+// SMSTemplates describes message templates.
 type SMSTemplates struct {
-	NoPhone   string `yaml:"noPhone,omitempty"` // не начинается с телефонного номера
-	Incorrect string `yaml:",omitempty"`        // содержит некорректный номер
-	Accepted  string `yaml:",omitempty"`        // отправлено
-	Delivered string `yaml:",omitempty"`        // доставлено
-	Error     string `yaml:",omitempty"`        // ошибка отправки или доставки
-	Incoming  string `yaml:",omitempty"`        // входящее
+	NoPhone   string `yaml:"noPhone,omitempty"` // doesn't start with a phone number
+	Incorrect string `yaml:",omitempty"`        // contains incorrect number
+	Accepted  string `yaml:",omitempty"`        // sent
+	Delivered string `yaml:",omitempty"`        // delivered
+	Error     string `yaml:",omitempty"`        // sending or delivery error
+	Incoming  string `yaml:",omitempty"`        // incoming
 }
 
-// SMSGate описывает конфигурацию для отправки SMS.
+// SMSGate describes the configuration for sending SMS.
 type SMSGate struct {
-	SMPP      *sms.SMPP    // SMPP-соединение
-	Responses SMSTemplates `yaml:"messageTemplates"` // список шаблонов ответов
-	MYSQL     string       `yaml:"mySqlLog"`         // инициализация подключения к логу
+	SMPP      *sms.SMPP    // SMPP connection
+	Responses SMSTemplates `yaml:"messageTemplates"` // list of response templates
+	MYSQL     string       `yaml:"mySqlLog"`         // initialization of connection to the log
 	Zabbix    *zabbix.Log  `yaml:"zabbix"`
-	counter   uint32       // счетчик отправленных сообщений
-	history   History      // история отправленных сообщений
+	counter   uint32       // counter of sent messages
+	history   History      // history of sent messages
 }
 
 func (s *SMSGate) Connect() {
-	s.SMPP.Connect() // устанавливаем соединение с SMPP серверами
+	s.SMPP.Connect() // establish connection with SMPP servers
 	go func() {
 		for msg := range s.SMPP.Receive {
 			// s.Logger.Debugln("Received:", msg)
 			switch msg := msg.(type) {
-			case sms.Received: // входящая SMS
-				s.Receive(msg) // обрабатываем входящее сообщение
+			case sms.Received: // incoming SMS
+				s.Receive(msg) // process incoming message
 			}
 		}
 	}()
 }
 
 func (s *SMSGate) Close() {
-	s.SMPP.Close() // останавливаем соединение с SMPP
+	s.SMPP.Close() // stop connection with SMPP
 }
 
 func (s *SMSGate) Send(mxName, jid string, msgID int64, to, msg string) (err error) {
-	from := s.history.GetFrom(config.MX[mxName].From, to, jid) // получаем лучший исходящий номер
+	from := s.history.GetFrom(config.MX[mxName].From, to, jid) // get the best outgoing number
 	if from == "" {
 		return errors.New("from phone is empty")
 	}
@@ -59,23 +59,23 @@ func (s *SMSGate) Send(mxName, jid string, msgID int64, to, msg string) (err err
 	}
 	phoneType := int64(11 - len(from))
 	smsMessage := &sms.SendMessage{From: from, To: to, Text: msg}
-	if err = s.SMPP.Send(smsMessage); err != nil { // отправляем СМС
+	if err = s.SMPP.Send(smsMessage); err != nil { // send SMS
 		zabbixLog.Send("gw.smsc.error", err.Error())
 		sglogDB.Insert(mxName, from, to, msg, false, phoneType, msgID, 0)
 		return err
 	}
 	sglogDB.Insert(mxName, from, to, msg, false, phoneType, msgID, 1)
-	s.history.Add(mxName, jid, from, to) // добавляем информацию о связи телефонов в историю
+	s.history.Add(mxName, jid, from, to) // add information about phone connection to history
 	return nil
 }
 
-// Receive обрабатывает входящие сообщения
+// Receive processes incoming messages
 func (s *SMSGate) Receive(msg sms.Received) {
 	incoming := s.Responses.Incoming
 	if incoming == "" {
 		incoming = "%s: %s"
 	}
-	// избавляемся от плюсов
+	// remove plus signs
 	if msg.From[0] == '+' {
 		msg.From = msg.From[1:]
 	}
@@ -85,20 +85,20 @@ func (s *SMSGate) Receive(msg sms.Received) {
 	phoneType := int64(11 - len(msg.From))
 	mxName, jid := s.history.Get(msg.To, msg.From)
 	sglogDB.Insert(mxName, msg.From, msg.To, msg.Text, true, phoneType, 0, 2)
-	if mxName == "" || jid == "" { // в истории не найдено подходящего пользователя, кому это адресовано
-		for name, mx := range config.MX { // перебираем все настройки MX-серверов
-			for _, from := range mx.From { // перебираем все их телефоны
-				if msg.To == from { // нашли подходящий номер
+	if mxName == "" || jid == "" { // no suitable user found in history to whom this is addressed
+		for name, mx := range config.MX { // iterate through all MX server settings
+			for _, from := range mx.From { // iterate through all their phones
+				if msg.To == from { // found a matching number
 					mxName = name
 					jid = mx.DefaultJID
-					if jid == "" { // не сконфигурирована доставка нераспознанных сообщений
+					if jid == "" { // delivery of unrecognized messages is not configured
 						return
 					}
-					goto next // нашли подходящее
+					goto next // found a suitable one
 				}
 			}
 		}
-		// номер, на который пришло сообщение, не указан ни для одного сервера
+		// the number to which the message came is not specified for any server
 		llog.WithFields(logrus.Fields{
 			"from": msg.From,
 			"to":   msg.To,
@@ -121,20 +121,20 @@ next:
 		"from": msg.From,
 		"to":   msg.To,
 	}).Info("SMS incoming")
-	// проверяем на спам
+	// check for spam
 	for _, from := range mx.From {
 		if msg.To == from {
-			return // это не спам - прислано нам
+			return // this is not spam - sent to us
 		}
 	}
 	return
 }
 
-// getMessage возвращает сформированную команду для отправки подтверждающего сообщения
-// на основе текста шаблона. Если текст шаблона пустой, то сообщение не отправляется
+// getMessage returns a formed command to send a confirmation message
+// based on the template text. If the template text is empty, the message is not sent
 func (s *SMSGate) getMessage(to, tmpl string, items ...interface{}) *sendMessage {
 	if tmpl == "" || to == "" {
-		return nil // тема письма или адрес получателя не определены
+		return nil // subject or recipient address is not defined
 	}
 	return &sendMessage{
 		To:    to,
@@ -143,11 +143,11 @@ func (s *SMSGate) getMessage(to, tmpl string, items ...interface{}) *sendMessage
 	}
 }
 
-// sendMessage описывает структуру исходящего сообщения.
+// sendMessage describes the structure of an outgoing message.
 type sendMessage struct {
 	XMLName xml.Name `xml:"message"`
-	To      string   `xml:"to,attr"`            // уникальный идентификатор получателя
-	MsgID   uint32   `xml:"msgId,attr"`         // идентификатор сообщения
-	Ext     string   `xml:"ext,attr,omitempty"` // внутренний номер получателя
-	Body    string   `xml:",chardata"`          // текст сообщения
+	To      string   `xml:"to,attr"`            // unique recipient identifier
+	MsgID   uint32   `xml:"msgId,attr"`         // message identifier
+	Ext     string   `xml:"ext,attr,omitempty"` // recipient's internal number
+	Body    string   `xml:",chardata"`          // message text
 }

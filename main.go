@@ -6,56 +6,54 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/mdigger/mxsms2/sqlog"
-	"github.com/mdigger/mxsms2/zabbix"
-	"github.com/x-cray/logrus-prefixed-formatter"
+	"github.com/sirupsen/logrus"
+	"mxsms/sqlog"
+	"mxsms/zabbix"
 )
 
 var (
-	appName        = "MXSMS"                 // название приложения
-	version        = "0.7.1"                 // версия
-	date           = "2016-02-01"            // дата сборки
-	build          = ""                      // номер сборки в git-репозитории
-	configFileName = "config.yaml"           // имя конфигурационного файла
-	config         *Config                   // загруженная и разобранная конфигурация
-	llog           = logrus.StandardLogger() // инициализируем сбор логов
-	sglogDB        *sqlog.DB                 // лог СМС
+	appName        = "MXSMS"                 // application name
+	version        = "0.7.1"                 // version
+	date           = "2016-02-01"            // build date
+	build          = ""                      // build number in git repository
+	configFileName = "config.yaml"           // configuration file name
+	config         *Config                   // loaded and parsed configuration
+	llog           = logrus.StandardLogger() // initialize log collection
+	sglogDB        *sqlog.DB                 // SMS log
 	zabbixLog      *zabbix.Log
 )
 
-const MaxErrors = 10 // максимально допустимое количество ошибок подключения
+const MaxErrors = 10 // maximum allowed number of connection errors
 
 func main() {
 	var debugLevel = uint(logrus.InfoLevel)
 	flag.StringVar(&configFileName, "config", configFileName, "configuration `fileName`")
 	flag.UintVar(&debugLevel, "level", debugLevel, "log `level` [0-5]")
-	flag.Parse() // разбираем параметры запуска приложения
+	flag.Parse() // parse application launch parameters
 
-	logrus.SetLevel(logrus.Level(debugLevel)) // уровень отладки
+	logrus.SetLevel(logrus.Level(debugLevel)) // debug level
 	// logrus.SetFormatter(new(logrus.JSONFormatter))
-	logrus.SetFormatter(new(prefixed.TextFormatter))
 	// hook, err := logrus_syslog.NewSyslogHook("", "", syslog.LOG_INFO, "")
 	// if err == nil {
-	// 	logrus.AddHook(hook)
+	//     logrus.AddHook(hook)
 	// }
 
-	// выводим в лог информацию о приложении и версии
+	// log information about the application and version
 	logEntry := llog.WithField("version", version)
-	if build != "" { // добавляем билд к номеру версии
+	if build != "" { // add build to version number
 		logEntry = logEntry.WithField("build", build)
 	}
-	if date != "" { // добавляем дату сборки к версии
+	if date != "" { // add build date to version
 		logEntry = logEntry.WithField("buildDate", date)
 	}
 	logEntry.Info(appName)
 
-	// запускаем бесконечный цикл чтения конфигурации и установки соединения
+	// start an infinite loop of reading configuration and establishing connection
 	for {
-		// загружаем и разбираем конфигурационный файл
+		// load and parse configuration file
 		logEntry := llog.WithField("filename", configFileName)
 		var err error
-		config, err = LoadConfig(configFileName) // загружаем конфигурационный файл
+		config, err = LoadConfig(configFileName) // load configuration file
 		if err != nil {
 			logEntry.WithError(err).Fatal("Error loading config")
 		}
@@ -68,24 +66,24 @@ func main() {
 		// zabbixLog = zabbix.New(config.SMSGate.ZabbixHost)
 		config.SMSGate.SMPP.Zabbix = config.SMSGate.Zabbix
 
-		config.MXConnect()       // запускаем асинхронно соединение с MX
-		config.SMSGate.Connect() // устанавливаем соединение с SMPP серверами
-		// инициализируем поддержку системных сигналов и ждем, когда он случится...
+		config.MXConnect()       // start asynchronous connection to MX
+		config.SMSGate.Connect() // establish connection to SMPP servers
+		// initialize support for system signals and wait for it to happen...
 		signal := monitorSignals(os.Interrupt, os.Kill, syscall.SIGUSR1)
-		config.SMSGate.Close() // останавливаем соединение с SMPP
-		config.MXClose()       // останавливаем соединение с MX серверами
-		sglogDB.Close()        // закрываем соединение с логом
-		// проверяем, что сигнал не является сигналом перечитать конфиг
+		config.SMSGate.Close() // stop connection to SMPP
+		config.MXClose()       // stop connection to MX servers
+		sglogDB.Close()        // close connection to the log
+		// check if the signal is not a signal to reread the config
 		if signal != syscall.SIGUSR1 {
 			llog.Info("The end")
-			return // заканчиваем нашу работу
+			return // end our work
 		}
-		llog.Info("Reload") // перечитываем конфиг и начинаем все с начала
+		llog.Info("Reload") // reread config and start all over again
 	}
 }
 
-// monitorSignals запускает мониторинг сигналов и возвращает значение, когда получает сигнал.
-// В качестве параметров передается список сигналов, которые нужно отслеживать.
+// monitorSignals starts monitoring signals and returns a value when it receives a signal.
+// The parameters are a list of signals to be tracked.
 func monitorSignals(signals ...os.Signal) os.Signal {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, signals...)

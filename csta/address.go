@@ -7,55 +7,55 @@ import (
 	"time"
 )
 
-// Используемые по умолчанию временные интервалы.
+// Default time intervals used.
 var (
-	DefaultConnectionTimeout = time.Second * 5  // время ожидания соединения с сервером.
-	DefaultKeepAliveDuration = time.Second * 30 // период посылки keep-alive сообщений.
+	DefaultConnectionTimeout = time.Second * 5  // timeout for server connection.
+	DefaultKeepAliveDuration = time.Second * 30 // period for sending keep-alive messages.
 )
 
-// Addr описывает адрес и параметры для подключения к серверу MX по CSTA-протоколу.
+// Addr describes the address and parameters for connecting to the MX server via CSTA protocol.
 type Addr struct {
-	Host           string        // адрес сервера
-	Port           int           `yaml:",omitempty"`               // порт
-	Secure         bool          `yaml:",omitempty"`               // использовать защищенное соединение
-	SkipVerify     bool          `yaml:"skipVerify,omitempty"`     // не проверять валидность сертификата
-	Timeout        time.Duration `yaml:",omitempty"`               // время ожидания подключения
-	ReconnectDelay time.Duration `yaml:"reconnectDelay,omitempty"` // время задержки между повторным подключением к серверу
-	MaxError       int           `yaml:"maxError,omitempty"`       // максимально допустимое количество ошибок
+	Host           string        // server address
+	Port           int           `yaml:",omitempty"`               // port
+	Secure         bool          `yaml:",omitempty"`               // use secure connection
+	SkipVerify     bool          `yaml:"skipVerify,omitempty"`     // do not verify certificate validity
+	Timeout        time.Duration `yaml:",omitempty"`               // connection timeout
+	ReconnectDelay time.Duration `yaml:"reconnectDelay,omitempty"` // delay time between reconnecting to the server
+	MaxError       int           `yaml:"maxError,omitempty"`       // maximum allowable number of errors
 }
 
-// FullAddr возвращает полный адрес сервера, включая порт.
+// FullAddr returns the full server address, including the port.
 func (a *Addr) FullAddr() string {
-	port := a.Port // порт сервера
+	port := a.Port // server port
 	if port == 0 {
 		if a.Secure {
-			port = 7778 // порт по умолчанию для защищенного соединения
+			port = 7778 // default port for secure connection
 		} else {
-			port = 7777 // порт по умолчанию для не защищенного соединения
+			port = 7777 // default port for non-secure connection
 		}
 	}
-	host := a.Host // адрес сервера
+	host := a.Host // server address
 	if host == "" {
 		host = "localhost"
 	}
-	return net.JoinHostPort(host, strconv.Itoa(port)) // полный адрес сервера, включая порт
+	return net.JoinHostPort(host, strconv.Itoa(port)) // full server address, including port
 }
 
-// Dial устанавливает и возвращает соединение с сервером.
+// Dial establishes and returns a connection to the server.
 func (a *Addr) Dial() (net.Conn, error) {
 	timeout := a.Timeout
 	if timeout <= 0 {
 		timeout = DefaultConnectionTimeout
 	}
-	dialer := &net.Dialer{ // установщик соединения
-		Timeout:   timeout,          // максимальное время ожидания соединения
-		KeepAlive: time.Second * 10, // интервал поддержки соединения
+	dialer := &net.Dialer{ // connection establisher
+		Timeout:   timeout,          // maximum connection wait time
+		KeepAlive: time.Second * 10, // connection maintenance interval
 	}
-	addr := a.FullAddr() // получаем полный адрес, включая порт
-	if a.Secure {        // устанавливаем защищенное соединение
-		// не проверяем валидность сертификатов, если задано в настройках
+	addr := a.FullAddr() // get full address, including port
+	if a.Secure {        // establish secure connection
+		// do not check certificate validity if specified in settings
 		return tls.DialWithDialer(dialer, "tcp", addr,
 			&tls.Config{InsecureSkipVerify: a.SkipVerify})
 	}
-	return dialer.Dial("tcp", addr) // устанавливаем не защищенное соединение
+	return dialer.Dial("tcp", addr) // establish non-secure connection
 }

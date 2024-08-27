@@ -5,54 +5,54 @@ import (
 	"reflect"
 )
 
-// Handler описывает интерфейс обработчиков событий
+// Handler describes the interface for event handlers
 type Handler interface {
 	Register(*Client) EventMap
 	Handle(interface{}) error
 }
 
-// EventMap описывает список имен поддерживаемых событий и ассоциированные с ними структуры
-// данных для их разбора. Используется при разборе событий, получаемых с сервера.
+// EventMap describes a list of supported event names and associated data structures
+// for parsing them. It is used when parsing events received from the server.
 type EventMap map[string]reflect.Type
 
-// GetDataPointer возвращает указатель на пустую структуру, поддерживающую разбор данных события
-// с указанным в параметре именем. Возвращает nil, если данное событие не поддерживается.
+// GetDataPointer returns a pointer to an empty structure that supports parsing event data
+// with the name specified in the parameter. Returns nil if the event is not supported.
 func (em EventMap) GetDataPointer(eventName string) interface{} {
-	dataType, ok := em[eventName] // получаем структура для разбора события
+	dataType, ok := em[eventName] // get the structure for parsing the event
 	if !ok || dataType == nil {
-		return nil // событие с таким именем не поддерживается
+		return nil // event with this name is not supported
 	}
-	// получаем указатель на структуру данных для разбора события
+	// get a pointer to the data structure for parsing the event
 	return reflect.New(dataType).Interface()
 }
 
-// defaultClientEvents описывает список поддерживаемых Client событий по умолчанию.
+// defaultClientEvents describes the list of default supported Client events.
 var defaultClientEvents = EventMap{
 	"CSTAErrorCode": reflect.TypeOf(ErrorCode{}),
-	"loginResponce": reflect.TypeOf(LoginResponce{}),
-	"loginFailed":   reflect.TypeOf(LoginResponce{}),
+	"loginResponce": reflect.TypeOf(LoginResponse{}),
+	"loginFailed":   reflect.TypeOf(LoginResponse{}),
 }
 
-// Commands описывает список возвращаемых команд.
+// Commands describes a list of returned commands.
 type Commands []interface{}
 
-// Add добавляет новую команду к списку.
+// Add adds a new command to the list.
 func (c *Commands) Add(cmd interface{}) {
 	if str, ok := cmd.(string); (ok && str == "") || (cmd == nil) {
-		return // игнорируем пустые команды
+		return // ignore empty commands
 	}
-	if c == nil { // инициализируем список, если он был не инициализирован
+	if c == nil { // initialize the list if it was not initialized
 		*c = make([]interface{}, 0)
 	}
-	*c = append(*c, cmd) // добавляем команду в список
+	*c = append(*c, cmd) // add the command to the list
 }
 
-// ErrorCode (CSTAErrorCode) описывает информацию об CSTA-ошибке.
+// ErrorCode (CSTAErrorCode) describes information about a CSTA error.
 type ErrorCode struct {
 	Message string `xml:",any"`
 }
 
-// Error возвращает строку с описанием ошибки.
+// Error returns a string with the error description.
 func (e *ErrorCode) Error() string {
 	return fmt.Sprintf("CSTA error: %s", e.Message)
 }

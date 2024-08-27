@@ -2,38 +2,38 @@ package sms
 
 import "time"
 
-// Received описывает доставленное и разобранное СМС-сообщение.
-// В него включены только те поля, которые мне были интересны.
+// Received describes a delivered and parsed SMS message.
+// It includes only those fields that were of interest to me.
 type Received struct {
-	From string // с какого номера
-	To   string // на какой номер
-	Text string // текст сообщения (в уже декодированном виде)
-	Addr string // идентификатор SMPP-сервера
+	From string // from which number
+	To   string // to which number
+	Text string // message text (already decoded)
+	Addr string // SMPP server identifier
 }
 
 type SendMessage struct {
-	MXName string   // название MX-сервера из конфигурации
-	JID    string   // уникальный идентификатор пользователя в MX
-	From   string   // с какого номера
-	To     string   // на какой номер
-	Text   string   // текст сообщения (в уже декодированном виде)
-	Seq    []uint32 // внутренние номера отправленных сообщений
+	MXName string   // name of the MX server from the configuration
+	JID    string   // unique user identifier in MX
+	From   string   // from which number
+	To     string   // to which number
+	Text   string   // message text (already decoded)
+	Seq    []uint32 // internal numbers of sent messages
 }
 
 type SendResponse struct {
-	ID   string // идентификатор сообщения
-	Seq  uint32 // внутренний номер сообщения
-	Addr string // идентификатор SMPP-сервера
+	ID   string // message identifier
+	Seq  uint32 // internal message number
+	Addr string // SMPP server identifier
 }
 
 type Status struct {
-	ID     string    // идентификатор сообщения
-	Sub    int       // количество частей СМС
-	Dlvrd  int       // количество доставленных
-	Submit time.Time // дата отправки сообщения
-	Done   time.Time // дата, когда сообщение достигло своего конечного состояния
-	Stat   string    // Статус доставки message_state в строковом виде
-	Err    int       // Расширенный статус доставки network_error_code
-	Text   string    // Тестовое представление
-	Addr   string    // идентификатор SMPP-сервера
+	ID     string    // message identifier
+	Sub    int       // number of SMS parts
+	Dlvrd  int       // number of delivered parts
+	Submit time.Time // message send date
+	Done   time.Time // date when the message reached its final state
+	Stat   string    // Delivery status message_state in string form
+	Err    int       // Extended delivery status network_error_code
+	Text   string    // Text representation
+	Addr   string    // SMPP server identifier
 }

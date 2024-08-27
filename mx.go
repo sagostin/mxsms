@@ -1,37 +1,37 @@
 package main
 
 import (
-	"github.com/Sirupsen/logrus"
-	"github.com/mdigger/mxsms2/csta"
+	"github.com/sirupsen/logrus"
+	"mxsms/csta"
 )
 
-// PhoneInfo описывает правила разбора телефонных номеров
+// PhoneInfo describes rules for parsing phone numbers
 type PhoneInfo struct {
-	Short  int      `yaml:",omitempty"`              // длина короткого телефонного номера
-	Prefix string   `yaml:"defaultPrefix,omitempty"` // префикс неполного телефонного номера
-	From   []string // список исходящих телефонных номеров
+	Short  int      `yaml:",omitempty"`              // length of short phone number
+	Prefix string   `yaml:"defaultPrefix,omitempty"` // prefix for incomplete phone number
+	From   []string // list of outgoing phone numbers
 }
 
-// MX описывает конфигурацию сервиса, включая необходимые данные для подключения к серверу
-// и авторизации пользователя.
+// MX describes the service configuration, including necessary data for connecting to the server
+// and user authorization.
 type MX struct {
-	name       string          // имя сервиса
-	csta.Addr  `yaml:"server"` // адрес сервера
-	csta.Login                 // информация для авторизации
-	PhoneInfo  `yaml:"phones"` // информация для разбора телефонных номеров
-	DefaultJID string          `yaml:"defaultJID,omitempty"` // кому доставлять неизвестные
-	Disabled   bool            `yaml:",omitempty"`           // флаг игнорируемого сервиса
-	Logger     *logrus.Entry   `yaml:"-"`                    // лог для вывода информации о сервисе
-	handler    *MessageHandle  // обработчик сообщений чата
-	client     *csta.Client    // клиент соединения с MX-сервером
+	name       string          // service name
+	csta.Addr  `yaml:"server"` // server address
+	csta.Login                 // authorization information
+	PhoneInfo  `yaml:"phones"` // information for parsing phone numbers
+	DefaultJID string          `yaml:"defaultJID,omitempty"` // where to deliver unknown messages
+	Disabled   bool            `yaml:",omitempty"`           // flag for ignored service
+	Logger     *logrus.Entry   `yaml:"-"`                    // log for outputting service information
+	handler    *MessageHandle  // chat message handler
+	client     *csta.Client    // client for connection to MX-server
 }
 
-// Connect устанавливает соединение и запускает сервис.
+// Connect establishes a connection and starts the service.
 func (mx *MX) Connect() error {
-	if mx.Logger == nil { // инициализируем поддержку лога
+	if mx.Logger == nil { // initialize log support
 		mx.Logger = logrus.NewEntry(logrus.StandardLogger())
 	}
-	if mx.name != "" { // добавляем имя сервера в лог, если оно определено
+	if mx.name != "" { // add server name to the log if it's defined
 		mx.Logger = mx.Logger.WithField("mx", mx.name)
 	}
 	if mx.Disabled {
@@ -41,23 +41,23 @@ func (mx *MX) Connect() error {
 	conn, err := mx.Addr.Dial()
 	if err != nil {
 		mx.Logger.WithError(err).Error("MX Connecting error")
-		return err // возвращаем ошибку установки соединения с сервером
+		return err // return error of establishing connection with the server
 	}
 	mx.Logger.WithField("host", mx.Addr.FullAddr()).Info("MX Connected")
-	// инициализируем клиента
+	// initialize the client
 	client := csta.NewClient(conn)
 	defer client.Close()
 	client.Logger = mx.Logger
-	// инициализируем обработчик сообщений
+	// initialize message handler
 	mx.handler = NewMessageHandler(config.SMSGate, mx)
 	client.AddHandler(mx.handler)
 	if err := client.Login(mx.Login); err != nil {
 		mx.Logger.WithError(err).Error("Authorizing error")
-		return err // ошибка отсылки авторизационной команды на сервер
+		return err // error sending authorization command to the server
 	}
 	mx.Logger.WithField("login", mx.Login.User).Info("MX Authorized")
 	mx.client = client
-	// запускаем процесс чтения ответов от сервера
+	// start the process of reading responses from the server
 	err = client.Reading()
 	if err != nil {
 		mx.Logger.WithError(err).Error("MX error")
@@ -65,11 +65,11 @@ func (mx *MX) Connect() error {
 	return err
 }
 
-// Close останавливает запущенный сервис.
+// Close stops the running service.
 func (mx *MX) Close() error {
 	if mx.client == nil {
-		return nil // клиент подключения к серверу не инициализирован
+		return nil // client connection to the server is not initialized
 	}
 	mx.Logger.Info("MX Close")
-	return mx.client.Close() // останавливаем соединение с сервером
+	return mx.client.Close() // stop connection to the server
 }

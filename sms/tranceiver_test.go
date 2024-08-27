@@ -4,10 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/mdigger/smpp"
 	"github.com/rifflock/lfshook"
-	"github.com/x-cray/logrus-prefixed-formatter"
+	"github.com/sirupsen/logrus"
 )
 
 var (

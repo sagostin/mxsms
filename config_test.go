@@ -2,14 +2,14 @@ package main
 
 import (
 	"fmt"
+	"gopkg.in/yaml.v3"
 	"io/ioutil"
+	"mxsms/sms"
 	"testing"
 	"time"
 
 	"github.com/kr/pretty"
-	"github.com/mdigger/mxsms2/csta"
-	"github.com/mdigger/mxsms2/sms"
-	"gopkg.in/yaml.v2"
+	"mxsms/csta"
 )
 
 func TestConfigGenerate(t *testing.T) {

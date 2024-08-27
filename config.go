@@ -1,12 +1,11 @@
 package main
 
 import (
+	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"net"
 	"time"
-
-	"github.com/Sirupsen/logrus"
-	"gopkg.in/yaml.v2"
 )
 
 type Config struct {
@@ -53,7 +52,7 @@ func (c *Config) MXConnect() {
 				err := mx.Connect() // устанавливаем соединение с сервером
 				zabbixLog.Send("mx.sms.link.lost", mx.name)
 				switch err := err.(type) { // проверяем тип ошибки
-				// case *csta.ErrorCode, *csta.LoginResponce, syscall.Errno:
+				// case *csta.ErrorCode, *csta.LoginResponse, syscall.Errno:
 				case *net.OpError:
 					if !(err.Temporary() || err.Timeout()) {
 						break // это не временная ошибка
