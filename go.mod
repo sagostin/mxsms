@@ -4,10 +4,8 @@ go 1.21
 
 require (
 	github.com/go-sql-driver/mysql v1.8.1
+	github.com/google/uuid v1.6.0
 	github.com/kr/pretty v0.3.1
-	github.com/mdigger/log v4.0.0+incompatible
-	github.com/mdigger/smpp v0.0.0-20151220102822-cb00fc8f7f36
-	github.com/rifflock/lfshook v0.0.0-20180920164130-b9218ef580f5
 	github.com/sirupsen/logrus v1.9.3
 	golang.org/x/text v0.17.0
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c

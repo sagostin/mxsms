@@ -2,10 +2,10 @@ package sms
 
 import (
 	"errors"
+	"mxsms/smpp"
 	"sync"
 	"time"
 
-	"github.com/mdigger/smpp"
 	"github.com/sirupsen/logrus"
 	"mxsms/zabbix"
 )

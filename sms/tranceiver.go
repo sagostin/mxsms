@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mdigger/smpp"
 	"github.com/sirupsen/logrus"
+	"mxsms/smpp"
 )
 
 var MaxParts = 8 // maximum number of parts into which a long message is split

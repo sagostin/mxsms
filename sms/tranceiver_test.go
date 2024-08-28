@@ -4,7 +4,7 @@ package sms
 	"testing"
 	"time"
 
-	"github.com/mdigger/smpp"
+	"mxsms/smpp"
 	"github.com/rifflock/lfshook"
 	"github.com/sirupsen/logrus"
 )
