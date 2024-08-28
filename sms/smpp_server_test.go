@@ -33,17 +33,19 @@ func TestSmppServer(t *testing.T) {
 
 	// Example of sending a message to a specific client after 10 seconds
 	go func(serv *smpp.Server) {
-		time.Sleep(10 * time.Second) // Simulate delay before sending SMS
-		for s, _ := range serv.Clients {
-			err := sendMessage(serv, smpp.SMS{
-				From:    "Server",
-				To:      "client1",
-				Message: "Hello from the server!",
-				Client:  s,
-			})
-			logrus.Infof("Sending to %s", s)
-			if err != nil {
-				logrus.Error(err)
+		for {
+			time.Sleep(2 * time.Second) // Simulate delay before sending SMS
+			for s, _ := range serv.Clients {
+				err := sendMessage(serv, smpp.SMS{
+					From:    "+12508591501",
+					To:      "+17786538344",
+					Message: "Hello from the server!",
+					Client:  s,
+				})
+				logrus.Infof("Sending to %s", s)
+				if err != nil {
+					logrus.Error(err)
+				}
 			}
 		}
 	}(server)
