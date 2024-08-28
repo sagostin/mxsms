@@ -1,4 +1,4 @@
-package csta
+package csta_old
 
 import (
 	"crypto/tls"
@@ -15,13 +15,13 @@ var (
 
 // Addr describes the address and parameters for connecting to the MX server via CSTA protocol.
 type Addr struct {
-	Host           string        // server address
-	Port           int           `yaml:",omitempty"`               // port
-	Secure         bool          `yaml:",omitempty"`               // use secure connection
-	SkipVerify     bool          `yaml:"skipVerify,omitempty"`     // do not verify certificate validity
-	Timeout        time.Duration `yaml:",omitempty"`               // connection timeout
-	ReconnectDelay time.Duration `yaml:"reconnectDelay,omitempty"` // delay time between reconnecting to the server
-	MaxError       int           `yaml:"maxError,omitempty"`       // maximum allowable number of errors
+	Host           string // server address
+	Port           int    `yaml:",omitempty" json:"port"`                         // port
+	Secure         bool   `yaml:",omitempty" json:"secure"`                       // use secure connection
+	SkipVerify     bool   `yaml:"skipVerify,omitempty" json:"skipVerify"`         // do not verify certificate validity
+	Timeout        string `yaml:",omitempty" json:"timeout"`                      // connection timeout
+	ReconnectDelay string `yaml:"reconnectDelay,omitempty" json:"reconnectDelay"` // delay time between reconnecting to the server
+	MaxError       int    `yaml:"maxError,omitempty" json:"maxError"`             // maximum allowable number of errors
 }
 
 // FullAddr returns the full server address, including the port.
@@ -43,7 +43,9 @@ func (a *Addr) FullAddr() string {
 
 // Dial establishes and returns a connection to the server.
 func (a *Addr) Dial() (net.Conn, error) {
-	timeout := a.Timeout
+	timeoutS := a.Timeout
+	timeout, _ := time.ParseDuration(timeoutS)
+
 	if timeout <= 0 {
 		timeout = DefaultConnectionTimeout
 	}

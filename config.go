@@ -1,22 +1,22 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"net"
 	"time"
 )
 
 type Config struct {
-	MX      map[string]*MX // MX servers
-	SMSGate *SMSGate       // SMS handling settings
+	MX      map[string]*MX `json:"mx,omitempty"`      // MX servers
+	SMSGate *SMSGate       `json:"smsgate,omitempty"` // SMS handling settings
 }
 
 // ParseConfig parses the configuration and initializes initial values.
 func ParseConfig(data []byte) (*Config, error) {
 	config := new(Config)
-	err := yaml.Unmarshal(data, config)
+	err := json.Unmarshal(data, config)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,7 @@ func (c *Config) MXConnect() {
 			var lastErrorTime time.Time      // time when the last temporary error occurred
 			for i := 0; i < maxErrors; i++ { // restart the service automatically in case of connection errors
 				err := mx.Connect() // establish connection with the server
-				zabbixLog.Send("mx.sms.link.lost", mx.name)
+				//zabbixLog.Send("mx.sms.link.lost", mx.name)
 				switch err := err.(type) { // check the error type
 				// case *csta.ErrorCode, *csta.LoginResponse, syscall.Errno:
 				case *net.OpError:
@@ -60,9 +60,10 @@ func (c *Config) MXConnect() {
 					if time.Since(lastErrorTime) > time.Minute*30 {
 						i = 0 // reset error counter if they were long ago
 					}
-					time.Sleep(mx.Addr.ReconnectDelay) // delay before next attempt
-					lastErrorTime = time.Now()         // remember error time
-					continue                           // non-critical errors - re-establish connection
+					reconnectDelay, _ := time.ParseDuration(mx.Addr.ReconnectDelay)
+					time.Sleep(reconnectDelay) // delay before next attempt
+					lastErrorTime = time.Now() // remember error time
+					continue                   // non-critical errors - re-establish connection
 				case nil:
 					return // planned service stop
 				}

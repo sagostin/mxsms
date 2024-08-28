@@ -1,0 +1,63 @@
+{
+  "mx": {
+    "tops-test": {
+      "server": {
+        "host": "",
+        "port": 7778,
+        "secure": true,
+        "skipVerify": true,
+        "clear": false,
+        "timeout": "20s",
+        "reconnectDelay": "30s",
+        "maxError": 5
+      },
+      "login": {
+        "user": "smsgate",
+        "password": "changem3"
+      },
+      "phones": {
+        "defaultPrefix": "1",
+        "from": {
+          "14086751455": "twilio",
+          "14086751475": "twilio"
+        }
+      },
+      "defaultJID": "44086340573989457"
+    }
+  },
+  "smsgate": {
+    "smpp": {
+      "address": [
+        "67.231.1.30:2775",
+        "67.231.4.201:2775"
+      ],
+      "systemId": "Zultys",
+      "password": "unmQF932",
+      "enquireDuration": "30s",
+      "reconnectDelay": "30s",
+      "maxError": 5,
+      "maxParts": 8
+    },
+    "carriers": [
+      {
+        "name": "twilio",
+        "username": "user",
+        "password": "pass",
+        "endpoint": "not applicable"
+      }
+    ],
+    "messageTemplates": {
+      "noPhone": "No phone in the beginning of the message",
+      "incorrect": "Invalid phone number: %q",
+      "accepted": "SMS sended to %q",
+      "delivered": "SMS delivered to %q",
+      "error": "SMS send error: %s",
+      "incoming": "SMS from %q\n%s"
+    },
+    "mySqlLog": "root@/mxsms?charset=utf8",
+    "zabbix": {
+      "server": "10.200.205.1",
+      "host": "BOS-MXV-SMS-GW1"
+    }
+  }
+}

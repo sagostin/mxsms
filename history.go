@@ -6,9 +6,9 @@ import (
 )
 
 type historyItem struct {
-	MXName string    // название MX-сервера
-	JID    string    // уникальный идентификатор пользователя
-	Sended time.Time // время добавления записи
+	MXName string    // MX server name
+	JID    string    // unique user identifier
+	Sended time.Time // record addition time
 }
 
 type History struct {
@@ -46,12 +46,15 @@ func (h *History) Get(from, to string) (mxName, jid string) {
 	return item.MXName, item.JID
 }
 
-func (h *History) GetFrom(froms []string, to, jid string) (from string) {
+func (h *History) GetFrom(froms map[string]string, to, jid string) (from string) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	items := h.list[to]
 	if items == nil {
-		return froms[0]
+		// Return the first phone number from the map if no history
+		for number := range froms {
+			return number
+		}
 	}
 	for from, item := range items {
 		if item.JID == jid {
@@ -62,14 +65,14 @@ func (h *History) GetFrom(froms []string, to, jid string) (from string) {
 		sended   time.Time
 		sendFrom string
 	)
-	for _, from := range froms {
-		item, ok := items[from]
+	for number := range froms {
+		item, ok := items[number]
 		if !ok {
-			return from
+			return number
 		}
 		if sended.IsZero() || item.Sended.Before(sended) {
 			sended = item.Sended
-			sendFrom = from
+			sendFrom = number
 		}
 	}
 	return sendFrom

@@ -8,7 +8,7 @@ import (
 
 func TestHistory(t *testing.T) {
 	jids := []string{"jid1", "jid2"}
-	froms := []string{"100", "200"}
+	froms := map[string]string{"100": "twilio", "200": "twilio"}
 	tos := []string{"01", "02", "03", "02", "01", "03", "03", "03", "01"}
 	var history History
 	for _, to := range tos {

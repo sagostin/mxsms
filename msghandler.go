@@ -2,19 +2,19 @@ package main
 
 import (
 	"fmt"
+	"mxsms/csta_old"
 	"reflect"
 	"regexp"
 
 	"github.com/sirupsen/logrus"
-	"mxsms/csta"
 )
 
 // MessageHandle describes the handler for incoming messages.
 type MessageHandle struct {
-	*SMSGate                // message templates
-	*MX                     // rules for parsing phone numbers
-	phoneRE  *regexp.Regexp // regular expression for parsing the message
-	client   *csta.Client   // client for connection to MX
+	*SMSGate                  // message templates
+	*MX                       // rules for parsing phone numbers
+	phoneRE  *regexp.Regexp   // regular expression for parsing the message
+	client   *csta_old.Client // client for connection to MX
 }
 
 // NewMessageHandler initializes and returns a new handler for incoming messages.
@@ -37,9 +37,9 @@ func NewMessageHandler(sms *SMSGate, mx *MX) *MessageHandle {
 }
 
 // Register returns information for registering the incoming message handler.
-func (mh *MessageHandle) Register(client *csta.Client) csta.EventMap {
+func (mh *MessageHandle) Register(client *csta_old.Client) csta_old.EventMap {
 	mh.client = client
-	return csta.EventMap{
+	return csta_old.EventMap{
 		"message": reflect.TypeOf(incommingMessage{}),
 	}
 }
@@ -63,7 +63,7 @@ func (mh *MessageHandle) Handle(eventData interface{}) (err error) {
 	submatch := mh.phoneRE.FindStringSubmatch(data.Body)
 	if submatch == nil { // phone number not found
 		logEntry.Info("SMS send ignore: no phone")
-		zabbixLog.Send("gw.sms.unknown.destination", "no phone")
+		//zabbixLog.Send("gw.sms.unknown.destination", "no phone")
 		return mh.client.Send(mh.getMessage(data.From, mh.Responses.NoPhone))
 	}
 	phone := submatch[1] // phone number found in the message
@@ -76,7 +76,7 @@ func (mh *MessageHandle) Handle(eventData interface{}) (err error) {
 		phone = fmt.Sprintf("%s", phone)
 	default: // unclear phone number length or invalid number
 		logEntry.WithField("phone", phone).Info("SMS send ignore bad phone")
-		zabbixLog.Send("gw.sms.unknown.destination", phone)
+		//zabbixLog.Send("gw.sms.unknown.destination", phone)
 		return mh.client.Send(mh.getMessage(data.From, mh.Responses.Incorrect, phone))
 	}
 	logEntry = logEntry.WithField("phone", phone)
@@ -84,7 +84,7 @@ func (mh *MessageHandle) Handle(eventData interface{}) (err error) {
 	err = mh.SMSGate.Send(mh.name, data.From, data.MsgID, phone, submatch[2])
 	if err != nil { // message not sent
 		logEntry.WithError(err).Info("SMS send error")
-		zabbixLog.Send("gw.sms.delivery.error", err.Error())
+		//zabbixLog.Send("gw.sms.delivery.error", err.Error())
 		return mh.client.Send(mh.getMessage(data.From, mh.Responses.Error, err.Error()))
 	}
 	logEntry.Info("SMS send to phone") // message successfully sent

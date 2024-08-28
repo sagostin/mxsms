@@ -14,20 +14,28 @@ import (
 
 // SMSTemplates describes message templates.
 type SMSTemplates struct {
-	NoPhone   string `yaml:"noPhone,omitempty"` // doesn't start with a phone number
-	Incorrect string `yaml:",omitempty"`        // contains incorrect number
-	Accepted  string `yaml:",omitempty"`        // sent
-	Delivered string `yaml:",omitempty"`        // delivered
-	Error     string `yaml:",omitempty"`        // sending or delivery error
-	Incoming  string `yaml:",omitempty"`        // incoming
+	NoPhone   string `yaml:"noPhone,omitempty" json:"noPhone,omitempty"` // doesn't start with a phone number
+	Incorrect string `yaml:",omitempty" json:"incorrect,omitempty"`      // contains incorrect number
+	Accepted  string `yaml:",omitempty" json:"accepted,omitempty"`       // sent
+	Delivered string `yaml:",omitempty" json:"delivered,omitempty"`      // delivered
+	Error     string `yaml:",omitempty" json:"error,omitempty"`          // sending or delivery error
+	Incoming  string `yaml:",omitempty" json:"incoming,omitempty"`       // incoming
+}
+
+type SMSCarrier struct {
+	Name     string `json:"name,omitempty"`
+	Username string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
+	Endpoint string `json:"endpoint,omitempty"`
 }
 
 // SMSGate describes the configuration for sending SMS.
 type SMSGate struct {
 	SMPP      *sms.SMPP    // SMPP connection
-	Responses SMSTemplates `yaml:"messageTemplates"` // list of response templates
-	MYSQL     string       `yaml:"mySqlLog"`         // initialization of connection to the log
-	Zabbix    *zabbix.Log  `yaml:"zabbix"`
+	Carriers  []SMSCarrier `json:"carriers"`
+	Responses SMSTemplates `yaml:"messageTemplates" json:"responses"` // list of response templates
+	MYSQL     string       `yaml:"mySqlLog" json:"mysql,omitempty"`   // initialization of connection to the log
+	Zabbix    *zabbix.Log  `yaml:"zabbix" json:"zabbix,omitempty"`
 	counter   uint32       // counter of sent messages
 	history   History      // history of sent messages
 }
@@ -60,7 +68,7 @@ func (s *SMSGate) Send(mxName, jid string, msgID int64, to, msg string) (err err
 	phoneType := int64(11 - len(from))
 	smsMessage := &sms.SendMessage{From: from, To: to, Text: msg}
 	if err = s.SMPP.Send(smsMessage); err != nil { // send SMS
-		zabbixLog.Send("gw.smsc.error", err.Error())
+		//zabbixLog.Send("gw.smsc.error", err.Error())
 		sglogDB.Insert(mxName, from, to, msg, false, phoneType, msgID, 0)
 		return err
 	}
@@ -87,7 +95,7 @@ func (s *SMSGate) Receive(msg sms.Received) {
 	sglogDB.Insert(mxName, msg.From, msg.To, msg.Text, true, phoneType, 0, 2)
 	if mxName == "" || jid == "" { // no suitable user found in history to whom this is addressed
 		for name, mx := range config.MX { // iterate through all MX server settings
-			for _, from := range mx.From { // iterate through all their phones
+			for from, _ := range mx.From { // iterate through all their phones
 				if msg.To == from { // found a matching number
 					mxName = name
 					jid = mx.DefaultJID

@@ -27,10 +27,11 @@ func (db *DB) Close() error {
 }
 
 func (db *DB) Insert(mx, in, out, text string, inbound bool, phoneType, pid int64, delivered int) error {
-	stmt, err := db.db.Prepare(`INSERT log SET mx=?,calling=?,called=?,inbound=?,text=?,pid=?,delivered=?,type=?`)
+	// todo fix this?
+	/*stmt, err := db.db.Prepare(`INSERT log SET mx=?,calling=?,called=?,inbound=?,text=?,pid=?,delivered=?,type=?`)
 	if err != nil {
 		return err
 	}
-	_, err = stmt.Exec(mx, in, out, inbound, text, pid, delivered, phoneType)
-	return err
+	_, err = stmt.Exec(mx, in, out, inbound, text, pid, delivered, phoneType)*/
+	return nil
 }

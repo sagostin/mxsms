@@ -2,28 +2,27 @@ package main
 
 import (
 	"github.com/sirupsen/logrus"
-	"mxsms/csta"
 )
 
 // PhoneInfo describes rules for parsing phone numbers
 type PhoneInfo struct {
-	Short  int      `yaml:",omitempty"`              // length of short phone number
-	Prefix string   `yaml:"defaultPrefix,omitempty"` // prefix for incomplete phone number
-	From   []string // list of outgoing phone numbers
+	Short  int               `yaml:",omitempty"`              // length of short phone number
+	Prefix string            `yaml:"defaultPrefix,omitempty"` // prefix for incomplete phone number
+	From   map[string]string // list of outgoing phone numbers
 }
 
 // MX describes the service configuration, including necessary data for connecting to the server
 // and user authorization.
 type MX struct {
-	name       string          // service name
-	csta.Addr  `yaml:"server"` // server address
-	csta.Login                 // authorization information
-	PhoneInfo  `yaml:"phones"` // information for parsing phone numbers
-	DefaultJID string          `yaml:"defaultJID,omitempty"` // where to deliver unknown messages
-	Disabled   bool            `yaml:",omitempty"`           // flag for ignored service
-	Logger     *logrus.Entry   `yaml:"-"`                    // log for outputting service information
-	handler    *MessageHandle  // chat message handler
-	client     *csta.Client    // client for connection to MX-server
+	name           string                        // service name
+	csta_old.Addr  `yaml:"server" json:"server"` // server address
+	csta_old.Login `json:"login"`                // authorization information
+	PhoneInfo      `yaml:"phones" json:"phones"` // information for parsing phone numbers
+	DefaultJID     string                        `yaml:"defaultJID,omitempty" json:"defaultJID,omitempty"` // where to deliver unknown messages
+	Disabled       bool                          `yaml:",omitempty" json:"disabled,omitempty"`             // flag for ignored service
+	Logger         *logrus.Entry                 `yaml:"-"`                                                // log for outputting service information
+	handler        *MessageHandle                // chat message handler
+	client         *csta_old.Client              // client for connection to MX-server
 }
 
 // Connect establishes a connection and starts the service.
@@ -45,7 +44,7 @@ func (mx *MX) Connect() error {
 	}
 	mx.Logger.WithField("host", mx.Addr.FullAddr()).Info("MX Connected")
 	// initialize the client
-	client := csta.NewClient(conn)
+	client := csta_old.NewClient(conn)
 	defer client.Close()
 	client.Logger = mx.Logger
 	// initialize message handler

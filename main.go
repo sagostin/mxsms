@@ -8,19 +8,18 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"mxsms/sqlog"
-	"mxsms/zabbix"
 )
 
 var (
 	appName        = "MXSMS"                 // application name
 	version        = "0.7.1"                 // version
-	date           = "2016-02-01"            // build date
+	date           = "2024-08-24"            // build date
 	build          = ""                      // build number in git repository
-	configFileName = "config.yaml"           // configuration file name
+	configFileName = "config.json"           // configuration file name
 	config         *Config                   // loaded and parsed configuration
 	llog           = logrus.StandardLogger() // initialize log collection
 	sglogDB        *sqlog.DB                 // SMS log
-	zabbixLog      *zabbix.Log
+	//zabbixLog      *zabbix.Log
 )
 
 const MaxErrors = 10 // maximum allowed number of connection errors
@@ -59,11 +58,11 @@ func main() {
 		}
 		logEntry.WithField("mx", len(config.MX)).Info("Config loaded")
 
-		sglogDB, err = sqlog.Connect(config.SMSGate.MYSQL)
+		/*sglogDB, err = sqlog.Connect(config.SMSGate.MYSQL)
 		if err != nil {
 			logEntry.WithError(err).Fatal("Error connecting to MySQL")
-		}
-		// zabbixLog = zabbix.New(config.SMSGate.ZabbixHost)
+		}*/
+		// //zabbixLog = zabbix.New(config.SMSGate.ZabbixHost)
 		config.SMSGate.SMPP.Zabbix = config.SMSGate.Zabbix
 
 		config.MXConnect()       // start asynchronous connection to MX

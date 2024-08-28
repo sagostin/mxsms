@@ -17,8 +17,8 @@ type SMPP struct {
 	Address         []string         // address and port of the SMPP server
 	SystemID        string           `yaml:"systemId"` // login for authorization
 	Password        string           // password for authorization
-	EnquireDuration time.Duration    `yaml:"enquireDuration,omitempty"` // interval for sending connection maintenance messages
-	ReconnectDelay  time.Duration    `yaml:"reconnectDelay,omitempty"`  // delay time between reconnecting to the server
+	EnquireDuration string           `yaml:"enquireDuration,omitempty"` // interval for sending connection maintenance messages
+	ReconnectDelay  string           `yaml:"reconnectDelay,omitempty"`  // delay time between reconnecting to the server
 	MaxError        int              `yaml:"maxError,omitempty"`        // maximum allowable number of errors
 	MaxParts        uint8            `yaml:"maxParts,omitempty"`        // maximum number of SMS splits
 	Logger          *logrus.Entry    `yaml:"-"`                         // log output
@@ -66,16 +66,19 @@ func (s *SMPP) Connect() {
 					key = "west.bw.sms.link"
 				}
 				// establish a connection with the SMPP server
-				trx, err := smpp.NewTransceiver(addr, s.EnquireDuration, bindParams)
+				enquireDuration, _ := time.ParseDuration(s.EnquireDuration)
+				trx, err := smpp.NewTransceiver(addr, enquireDuration, bindParams)
 				if err != nil {
 					s.Zabbix.Send(key, "0")
 					logEntry.WithError(err).Error("SMPP Connection error")
 					if time.Since(lastErrorTime) > time.Minute*30 {
 						i = 0 // reset error counter if errors were long ago
 					}
-					time.Sleep(s.ReconnectDelay) // delay before next attempt
-					lastErrorTime = time.Now()   // remember error time
-					continue                     // repeat once more
+					reconnectDelay, _ := time.ParseDuration(s.ReconnectDelay)
+
+					time.Sleep(reconnectDelay) // delay before next attempt
+					lastErrorTime = time.Now() // remember error time
+					continue                   // repeat once more
 				}
 				logEntry.Info("SMPP Connected")
 				go func() {

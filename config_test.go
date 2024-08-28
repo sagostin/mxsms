@@ -4,19 +4,19 @@ import (
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
+	"mxsms/csta_old"
 	"mxsms/sms"
 	"testing"
 	"time"
 
 	"github.com/kr/pretty"
-	"mxsms/csta"
 )
 
 func TestConfigGenerate(t *testing.T) {
 	var config = &Config{
 		MX: map[string]*MX{
 			"xyzrd-test": {
-				Addr: csta.Addr{
+				Addr: csta_old.Addr{
 					Host:           "10.30.2.221",
 					Port:           7778,
 					Secure:         true,
@@ -25,14 +25,14 @@ func TestConfigGenerate(t *testing.T) {
 					ReconnectDelay: time.Second * 30,
 					MaxError:       5,
 				},
-				Login: csta.Login{
+				Login: csta_old.Login{
 					User:     "smsgate",
 					Password: "9185",
 				},
 				PhoneInfo: PhoneInfo{
 					Short:  0,
 					Prefix: "1",
-					From:   []string{"14086751455", "14086751475"},
+					From:   map[string]string{"14086751455": "twilio", "14086751475": "twilio"},
 				},
 				DefaultJID: "44086340573989457",
 			},

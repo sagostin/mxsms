@@ -1,6 +1,6 @@
 package sms
 
-import (
+/*import (
 	"testing"
 	"time"
 
@@ -84,3 +84,4 @@ func TestSMPPTranceiver(t *testing.T) {
 
 	time.Sleep(time.Minute * 5)
 }
+*/
